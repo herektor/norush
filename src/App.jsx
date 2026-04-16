@@ -3,8 +3,8 @@ import { useState, useEffect, useRef } from "react";
 /* ═══════════════════════════════════════════════════════════════════
    SUPABASE
 ═══════════════════════════════════════════════════════════════════ */
-const SURL = import.meta.env.VITE_SUPABASE_URL;
-const SKEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SURL = "https://eslxeqhrlalocofesogj.supabase.co";
+const SKEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzbHhlcWhybGFsb2NvZmVzb2dqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNDUxNzgsImV4cCI6MjA5MTcyMTE3OH0.47bY9RBN8M6_GyURH0xaq3BpjBXQGqO7HwNxlqdeTls";
 
 async function db(table, method = "GET", body = null, filters = "") {
   const res = await fetch(`${SURL}/rest/v1/${table}${filters}`, {
