@@ -1405,35 +1405,47 @@ export default function App() {
     return () => clearInterval(iv);
   },[user?.userId]);
 
-  const handleAuth = async ({ token, userId, email, role }) => {
-    setLoading(true);
-    // Check if user already has a profile
-    let detectedRole = role;
-    let profile = null;
-
-    // Check each table for existing profile
-    if (!detectedRole) {
-      const customer = await dbAuth("customers","GET",null,`?user_id=eq.${userId}&select=*`,token);
-      if (customer?.[0]) { detectedRole = "customer"; profile = customer[0]; }
-    }
-    if (!detectedRole) {
-      const restaurant = await dbAuth("restaurants","GET",null,`?owner_id=eq.${userId}&select=*`,token);
-      if (restaurant?.[0]) { detectedRole = "restaurant"; profile = restaurant[0]; }
-    }
-    if (!detectedRole) {
-      const courier = await dbAuth("couriers","GET",null,`?user_id=eq.${userId}&select=*`,token);
-      if (courier?.[0]) { detectedRole = "courier"; profile = courier[0]; }
-    }
-    if (!detectedRole) {
-      const admin = await dbAuth("admin_users","GET",null,`?user_id=eq.${userId}&select=*`,token);
-      if (admin?.[0]) { detectedRole = "admin"; profile = admin[0]; }
-    }
-
-    const session = { token, userId, email, role: detectedRole, profile };
-    setUser(session);
-    localStorage.setItem("norush_session", JSON.stringify(session));
+ const handleAuth = async ({ token, userId, email, role }) => {
+  setLoading(true);
+  
+  // If no userId, signup may have failed - try to get it from token
+  let uid = userId;
+  if (!uid && token) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      uid = payload.sub;
+    } catch(e) {}
+  }
+  
+  if (!uid) {
     setLoading(false);
-  };
+    return;
+  }
+
+  let detectedRole = role;
+  let profile = null;
+
+  const customer = await dbAuth("customers","GET",null,`?user_id=eq.${uid}&select=*`,token);
+  if (customer?.[0]) { detectedRole = "customer"; profile = customer[0]; }
+  
+  if (!detectedRole) {
+    const restaurant = await dbAuth("restaurants","GET",null,`?owner_id=eq.${uid}&select=*`,token);
+    if (restaurant?.[0]) { detectedRole = "restaurant"; profile = restaurant[0]; }
+  }
+  if (!detectedRole) {
+    const courier = await dbAuth("couriers","GET",null,`?user_id=eq.${uid}&select=*`,token);
+    if (courier?.[0]) { detectedRole = "courier"; profile = courier[0]; }
+  }
+  if (!detectedRole) {
+    const admin = await dbAuth("admin_users","GET",null,`?user_id=eq.${uid}&select=*`,token);
+    if (admin?.[0]) { detectedRole = "admin"; profile = admin[0]; }
+  }
+
+  const session = { token, userId: uid, email, role: detectedRole, profile };
+  setUser(session);
+  localStorage.setItem("norush_session", JSON.stringify(session));
+  setLoading(false);
+};
 
   const handleSignOut = async () => {
     if (user?.token) await signOut(user.token);
