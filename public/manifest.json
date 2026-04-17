@@ -1,0 +1,18 @@
+{
+  "name": "NoRush · Lauttasaari",
+  "short_name": "NoRush",
+  "description": "Food delivery in Lauttasaari, Helsinki",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0F",
+  "theme_color": "#FF3B2F",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23FF3B2F'/><text y='.9em' font-size='70' x='15'>🛵</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
