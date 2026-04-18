@@ -822,7 +822,13 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
       subtotal:sub,delivery_fee:fee,total:tot,status:"new",pay_method:"card",
     },"",user.token);
     setLoading(false);
-    if(result?.[0]){setMyOrderId(result[0].id);await fetchOrders();setCart([]);}
+    if(result?.[0]){
+  const newOrder = result[0];
+  setMyOrderId(newOrder.id);
+  await fetchOrders();
+  setCart([]);
+  setScr("track");
+}
     else alert("Order failed — try again");
   };
 
