@@ -1477,10 +1477,13 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
                   ):(
                     // Item row
                     <div style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:8,border:`1px solid ${T.br}`,display:"flex",alignItems:"center",gap:10,opacity:item.is_available?1:0.5 }}>
-                      {item.photo_url&&<img src={item.photo_url} style={{ width:56,height:56,borderRadius:9,objectFit:"cover",flexShrink:0 }} alt={item.name}/>}
-                      {!item.photo_url&&<div onClick={()=>uploadMenuPhoto(document.createElement("input"),item.id)} style={{ width:44,height:44,borderRadius:9,background:T.hi,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0,cursor:"pointer" }}>
-                        <ImageUploadBtn label="" currentUrl={null} onUpload={(f)=>uploadMenuPhoto(f,item.id)} size={44} token={user.token}/>
-                      </div>}
+                      <ImageUploadBtn
+                        label={item.photo_url?"":"📷 Add photo"}
+                        currentUrl={item.photo_url}
+                        onUpload={(f)=>uploadMenuPhoto(f,item.id)}
+                        size={56}
+                        token={user.token}
+                      />
                       <div style={{ flex:1 }}>
                         <div style={{ fontWeight:700,fontSize:14 }}>{item.name}</div>
                         {item.description&&<div style={{ fontSize:12,color:T.mu,marginTop:2 }}>{item.description}</div>}
