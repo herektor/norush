@@ -110,7 +110,7 @@ async function uploadImage(file, bucket, path, token) {
       body: compressed,
     });
     if (!res.ok) { const t = await res.text(); console.error("Upload error:", t); return null; }
-    return `${SURL}/storage/v1/object/public/${bucket}/${path}`;
+    return `${SURL}/storage/v1/object/public/${bucket}/${path}?t=${Date.now()}`;
   } catch(e) { console.error("Upload failed:", e); return null; }
 }
 
@@ -1173,7 +1173,10 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
     if(!user.profile?.id) return;
     setMenuLoading(true);
     const items = await db("menu_items","GET",null,`?restaurant_id=eq.${user.profile.id}&select=*&order=category.asc,name.asc`);
-    if(items) setMenuItems(items);
+    if(items) setMenuItems(items.map(i=>({
+      ...i,
+      photo_url: i.photo_url ? i.photo_url.split("?")[0]+"?t="+Date.now() : null
+    })));
     setMenuLoading(false);
   };
 
