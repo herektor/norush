@@ -115,35 +115,48 @@ async function uploadImage(file, bucket, path, token) {
 }
 
 // Image upload button component
-function ImageUploadBtn({ label, currentUrl, onUpload, size=80, round=false }) {
-  const ref = React.useRef(null);
-  const [uploading, setUploading] = React.useState(false);
+function ImageUploadBtn({ label, currentUrl, onUpload, size=80, round=false, token }) {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [hover, setHover] = useState(false);
   return (
-    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
-      <div onClick={()=>ref.current?.click()} style={{
-        width:size, height:size, borderRadius:round?"50%":12,
-        background:currentUrl?"transparent":"#1E1E2A",
-        border:`2px dashed ${currentUrl?"transparent":"#2A2A38"}`,
-        overflow:"hidden", cursor:"pointer", position:"relative",
-        display:"flex", alignItems:"center", justifyContent:"center",
-        flexShrink:0,
-      }}>
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, flexShrink:0 }}>
+      <div
+        onClick={()=>fileRef.current?.click()}
+        onMouseEnter={()=>setHover(true)}
+        onMouseLeave={()=>setHover(false)}
+        style={{
+          width:size, height:size, borderRadius:round?"50%":12,
+          background:currentUrl?"transparent":"#1E1E2A",
+          border:`2px dashed ${currentUrl?"#2A2A38":"#FF3B2F44"}`,
+          overflow:"hidden", cursor:"pointer", position:"relative",
+          display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+        }}>
         {currentUrl
-          ? <img src={currentUrl} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt=""/>
-          : <div style={{ textAlign:"center", color:"#6A6A88", fontSize:11 }}>{uploading?"⏳":"📷"}<br/><span style={{ fontSize:9 }}>{label}</span></div>
+          ? <img src={currentUrl} style={{ width:"100%",height:"100%",objectFit:"cover" }} alt=""/>
+          : <div style={{ textAlign:"center",color:"#6A6A88",fontSize:11,padding:4 }}>
+              <div style={{ fontSize:size>60?24:16,marginBottom:2 }}>{uploading?"⏳":"📷"}</div>
+              <div style={{ fontSize:9,lineHeight:1.3 }}>{label}</div>
+            </div>
         }
-        {uploading && <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>⏳</div>}
+        {(hover||uploading)&&currentUrl&&(
+          <div style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0.55)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3 }}>
+            <div style={{ fontSize:size>60?22:16 }}>{uploading?"⏳":"📷"}</div>
+            {!uploading&&<div style={{ fontSize:9,color:"#fff",fontWeight:700 }}>Change</div>}
+          </div>
+        )}
+        {uploading&&!currentUrl&&<div style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>⏳</div>}
       </div>
-      <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" style={{ display:"none" }}
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display:"none" }}
         onChange={async e=>{
-          const file = e.target.files[0]; if(!file) return;
+          const file=e.target.files[0]; if(!file) return;
+          if(file.size>5*1024*1024){alert("File too large — max 5MB");return;}
           setUploading(true);
           await onUpload(file);
           setUploading(false);
           e.target.value="";
         }}
       />
-      {currentUrl && <button onClick={()=>ref.current?.click()} style={{ background:"none",border:"none",color:"#6A6A88",fontSize:11,cursor:"pointer",fontFamily:"inherit" }}>Change</button>}
     </div>
   );
 }
