@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import * as React from "react";
 
 /* ═══════════════════════════════════════════════════════════════════
    SUPABASE — auth + database
@@ -75,6 +76,148 @@ async function geocode(address) {
     if (data[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
   } catch(e) { console.log("Geocode error:", e); }
   return null;
+}
+
+// ─── IMAGE UPLOAD — compress in browser then send to Supabase Storage ───
+async function compressImage(file, maxWidth=1200, quality=0.82) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => { URL.revokeObjectURL(url); resolve(blob); }, "image/jpeg", quality);
+    };
+    img.src = url;
+  });
+}
+
+async function uploadImage(file, bucket, path, token) {
+  try {
+    const compressed = await compressImage(file);
+    const res = await fetch(`${SURL}/storage/v1/object/${bucket}/${path}`, {
+      method: "POST",
+      headers: {
+        apikey: SKEY,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "image/jpeg",
+        "x-upsert": "true",
+      },
+      body: compressed,
+    });
+    if (!res.ok) { const t = await res.text(); console.error("Upload error:", t); return null; }
+    return `${SURL}/storage/v1/object/public/${bucket}/${path}`;
+  } catch(e) { console.error("Upload failed:", e); return null; }
+}
+
+function ImageUploadBtn({ label, currentUrl, onUpload, size=80, round=false, token }) {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+      <div onClick={()=>fileRef.current?.click()} style={{
+        width:size, height:size, borderRadius:round?"50%":12,
+        background:currentUrl?"transparent":"#1E1E2A",
+        border:`2px dashed ${currentUrl?"#2A2A38":"#FF3B2F44"}`,
+        overflow:"hidden", cursor:"pointer", position:"relative",
+        display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
+      }}>
+        {currentUrl
+          ? <img src={currentUrl} style={{ width:"100%",height:"100%",objectFit:"cover" }} alt=""/>
+          : <div style={{ textAlign:"center",color:"#6A6A88",fontSize:11,padding:4 }}>
+              <div style={{ fontSize:size>60?24:16,marginBottom:2 }}>{uploading?"⏳":"📷"}</div>
+              <div style={{ fontSize:9,lineHeight:1.3 }}>{label}</div>
+            </div>
+        }
+        {uploading&&<div style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>⏳</div>}
+      </div>
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" style={{ display:"none" }}
+        onChange={async e=>{
+          const file=e.target.files[0]; if(!file) return;
+          if(file.size>5*1024*1024){alert("File too large — max 5MB");return;}
+          setUploading(true);
+          await onUpload(file);
+          setUploading(false);
+          e.target.value="";
+        }}
+      />
+      {currentUrl&&<button onClick={()=>fileRef.current?.click()} style={{ background:"none",border:"none",color:"#6A6A88",fontSize:11,cursor:"pointer",fontFamily:"inherit" }}>Change photo</button>}
+    </div>
+  );
+}
+
+// ─── IMAGE UPLOAD — compress in browser then upload to Supabase Storage ───
+async function compressImage(file, maxWidth=1200, quality=0.82) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => { URL.revokeObjectURL(url); resolve(blob); }, "image/jpeg", quality);
+    };
+    img.src = url;
+  });
+}
+
+async function uploadImage(file, bucket, path, token) {
+  try {
+    const compressed = await compressImage(file);
+    const res = await fetch(`${SURL}/storage/v1/object/${bucket}/${path}`, {
+      method: "POST",
+      headers: {
+        apikey: SKEY,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "image/jpeg",
+        "x-upsert": "true",
+      },
+      body: compressed,
+    });
+    if (!res.ok) { const t = await res.text(); console.error("Upload error:", t); return null; }
+    return `${SURL}/storage/v1/object/public/${bucket}/${path}`;
+  } catch(e) { console.error("Upload failed:", e); return null; }
+}
+
+// Image upload button component
+function ImageUploadBtn({ label, currentUrl, onUpload, size=80, round=false }) {
+  const ref = React.useRef(null);
+  const [uploading, setUploading] = React.useState(false);
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
+      <div onClick={()=>ref.current?.click()} style={{
+        width:size, height:size, borderRadius:round?"50%":12,
+        background:currentUrl?"transparent":"#1E1E2A",
+        border:`2px dashed ${currentUrl?"transparent":"#2A2A38"}`,
+        overflow:"hidden", cursor:"pointer", position:"relative",
+        display:"flex", alignItems:"center", justifyContent:"center",
+        flexShrink:0,
+      }}>
+        {currentUrl
+          ? <img src={currentUrl} style={{ width:"100%", height:"100%", objectFit:"cover" }} alt=""/>
+          : <div style={{ textAlign:"center", color:"#6A6A88", fontSize:11 }}>{uploading?"⏳":"📷"}<br/><span style={{ fontSize:9 }}>{label}</span></div>
+        }
+        {uploading && <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>⏳</div>}
+      </div>
+      <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" style={{ display:"none" }}
+        onChange={async e=>{
+          const file = e.target.files[0]; if(!file) return;
+          setUploading(true);
+          await onUpload(file);
+          setUploading(false);
+          e.target.value="";
+        }}
+      />
+      {currentUrl && <button onClick={()=>ref.current?.click()} style={{ background:"none",border:"none",color:"#6A6A88",fontSize:11,cursor:"pointer",fontFamily:"inherit" }}>Change</button>}
+    </div>
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -901,7 +1044,10 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
             onMouseEnter={e=>e.currentTarget.style.transform="scale(1.01)"}
             onMouseLeave={e=>e.currentTarget.style.transform=""}>
             <div style={{ height:80,background:`linear-gradient(135deg,#FF3B2F33,#FF6B3511)`,display:"flex",alignItems:"center",gap:14,padding:"0 16px" }}>
-              <span style={{ fontSize:32 }}>🍽</span>
+              {r.logo_url
+                ? <img src={r.logo_url} style={{ width:44,height:44,borderRadius:10,objectFit:"cover",flexShrink:0 }} alt={r.name}/>
+                : <span style={{ fontSize:32 }}>🍽</span>
+              }
               <div style={{ flex:1 }}>
                 <div style={{ fontWeight:800,fontSize:14 }}>{r.name}</div>
                 <div style={{ color:T.mu,fontSize:11 }}>{r.cuisine} · {r.address}</div>
@@ -930,6 +1076,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
               const q=qty(item.id);
               return(
                 <div key={item.id} style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",border:`1px solid ${q>0?T.ac+"55":T.br}` }}>
+                  {item.photo_url&&<img src={item.photo_url} style={{ width:72,height:72,borderRadius:10,objectFit:"cover",flexShrink:0 }} alt={item.name}/>}
                   <div style={{ flex:1,marginRight:10 }}>
                     <div style={{ fontWeight:700,fontSize:13 }}>{item.name}</div>
                     <div style={{ color:T.mu,fontSize:11,marginTop:1 }}>{item.description}</div>
@@ -1079,8 +1226,9 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
   const [menuItems, setMenuItems] = useState([]);
   const [menuLoading, setMenuLoading] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [newItem, setNewItem] = useState({ name:"", price:"", description:"", category:"Mains", is_available:true });
+  const [newItem, setNewItem] = useState({ name:"", price:"", description:"", category:"Mains", is_available:true, photo_url:"" });
   const [addingItem, setAddingItem] = useState(false);
+  const [restLogoUrl, setRestLogoUrl] = useState(user.profile?.logo_url||"");
   const T = L;
   const NEXT={new:"accepted",accepted:"preparing",heading_to_restaurant:"preparing",preparing:"ready"};
   const BTN={new:"✓ Accept order",accepted:"🍳 Start cooking",heading_to_restaurant:"🍳 Start cooking",preparing:"🔔 Mark ready"};
@@ -1122,10 +1270,34 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
       price: parseFloat(newItem.price),
       category: newItem.category,
       is_available: true,
+      photo_url: newItem.photo_url||null,
     },"",user.token);
-    setNewItem({ name:"", price:"", description:"", category:"Mains", is_available:true });
+    setNewItem({ name:"", price:"", description:"", category:"Mains", is_available:true, photo_url:"" });
     setAddingItem(false);
     loadMenu();
+  };
+
+  const uploadMenuPhoto = async (file, itemId) => {
+    const path = `menu/${user.profile.id}/${itemId||Date.now()}.jpg`;
+    const url = await uploadImage(file, "norush-images", path, user.token);
+    if(url) {
+      if(itemId) {
+        await dbAuth("menu_items","PATCH",{photo_url:url},`?id=eq.${itemId}`,user.token);
+        loadMenu();
+      } else {
+        setNewItem(p=>({...p,photo_url:url}));
+      }
+    }
+    return url;
+  };
+
+  const uploadRestaurantLogo = async (file) => {
+    const path = `logos/${user.profile.id}.jpg`;
+    const url = await uploadImage(file, "norush-images", path, user.token);
+    if(url) {
+      await dbAuth("restaurants","PATCH",{logo_url:url},`?id=eq.${user.profile.id}`,user.token);
+      setRestLogoUrl(url);
+    }
   };
 
   const saveEdit = async () => {
@@ -1155,7 +1327,9 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
       {/* Header */}
       <div style={{ padding:"14px 16px",background:T.sf,borderBottom:`1px solid ${T.br}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
         <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-          <div style={{ width:38,height:38,borderRadius:10,background:T.ac,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>🍽</div>
+          <div style={{ width:40,height:40,borderRadius:10,background:T.ac,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,overflow:"hidden",flexShrink:0 }}>
+            {restLogoUrl ? <img src={restLogoUrl} style={{ width:"100%",height:"100%",objectFit:"cover" }} alt=""/> : "🍽"}
+          </div>
           <div>
             <div style={{ fontWeight:900,fontSize:16 }}>{user.profile?.name||"Restaurant"}</div>
             <div style={{ fontSize:11,color:T.mu }}>Lauttasaari · Dashboard</div>
@@ -1284,6 +1458,15 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
       {tab==="menu"&&(
         <div style={{ flex:1,overflowY:"auto",padding:"14px 14px 100px" }}>
           {/* Add new item button */}
+          {/* Restaurant logo upload */}
+          <div style={{ background:T.sf,borderRadius:12,padding:"14px 16px",marginBottom:14,border:`1px solid ${T.br}`,display:"flex",alignItems:"center",gap:14 }}>
+            <ImageUploadBtn label="Logo" currentUrl={restLogoUrl} onUpload={uploadRestaurantLogo} size={56} round={true} token={user.token}/>
+            <div>
+              <div style={{ fontWeight:700,fontSize:14 }}>{user.profile?.name}</div>
+              <div style={{ fontSize:12,color:T.mu,marginTop:2 }}>Tap logo to upload or change</div>
+            </div>
+          </div>
+
           {!addingItem&&(
             <button onClick={()=>setAddingItem(true)} style={{ width:"100%",padding:"13px 0",background:T.ac,color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:800,cursor:"pointer",fontFamily:"inherit",marginBottom:16 }}>
               + Add new dish
@@ -1317,6 +1500,11 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
                   style={{ width:"100%",padding:"10px 12px",borderRadius:9,fontSize:14,border:`1.5px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none" }}>
                   {CATEGORIES.map(c=><option key={c}>{c}</option>)}
                 </select>
+              </div>
+              {/* Photo upload for new item */}
+              <div style={{ marginBottom:14,display:"flex",alignItems:"center",gap:12 }}>
+                <ImageUploadBtn label="Dish photo" currentUrl={newItem.photo_url} onUpload={(f)=>uploadMenuPhoto(f,null)} size={70} token={user.token}/>
+                <div style={{ fontSize:12,color:T.mu,lineHeight:1.5 }}>Optional: add a photo<br/>to attract more orders</div>
               </div>
               <div style={{ display:"flex",gap:8 }}>
                 <button onClick={saveNewItem} disabled={menuLoading}
@@ -1361,6 +1549,10 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
                   ):(
                     // Item row
                     <div style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:8,border:`1px solid ${T.br}`,display:"flex",alignItems:"center",gap:10,opacity:item.is_available?1:0.5 }}>
+                      {item.photo_url&&<img src={item.photo_url} style={{ width:56,height:56,borderRadius:9,objectFit:"cover",flexShrink:0 }} alt={item.name}/>}
+                      {!item.photo_url&&<div onClick={()=>uploadMenuPhoto(document.createElement("input"),item.id)} style={{ width:44,height:44,borderRadius:9,background:T.hi,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0,cursor:"pointer" }}>
+                        <ImageUploadBtn label="" currentUrl={null} onUpload={(f)=>uploadMenuPhoto(f,item.id)} size={44} token={user.token}/>
+                      </div>}
                       <div style={{ flex:1 }}>
                         <div style={{ fontWeight:700,fontSize:14 }}>{item.name}</div>
                         {item.description&&<div style={{ fontSize:12,color:T.mu,marginTop:2 }}>{item.description}</div>}
@@ -1539,11 +1731,28 @@ function CourierApp({ user, onSignOut, orders, fetchOrders }) {
         {scr==="earnings"&&(
           <div>
             <div style={{ background:T.sf,borderRadius:14,padding:"18px 16px",border:`1px solid ${T.br}`,marginBottom:12 }}>
-              <div style={{ fontSize:11,color:T.mu,marginBottom:4,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:800 }}>Today's earnings</div>
+              <div style={{ fontSize:11,color:T.mu,marginBottom:4,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:800 }}>All-time earnings</div>
               <div style={{ fontSize:34,fontWeight:900,color:T.gr }}>€{earnings.toFixed(2)}</div>
-              <div style={{ fontSize:11,color:T.mu,marginTop:4 }}>{myDone.length} deliveries</div>
+              <div style={{ display:"flex",gap:16,marginTop:8 }}>
+                <div><div style={{ fontSize:16,fontWeight:800,color:T.tx }}>{myDone.length}</div><div style={{ fontSize:10,color:T.mu }}>Deliveries</div></div>
+                <div><div style={{ fontSize:16,fontWeight:800,color:T.tx }}>€{myDone.length?(earnings/myDone.length).toFixed(2):"0.00"}</div><div style={{ fontSize:10,color:T.mu }}>Per delivery avg</div></div>
+              </div>
             </div>
-            {myDone.map(o=>(<div key={o.id} style={{ background:T.sf,borderRadius:10,padding:"10px 14px",marginBottom:8,border:`1px solid ${T.br}`,display:"flex",justifyContent:"space-between",alignItems:"center" }}><div><div style={{ fontSize:12,fontWeight:700 }}>#{o.id?.slice(0,6)}</div><div style={{ fontSize:10,color:T.mu,marginTop:2 }}>→ {o.customer_address?.split(",")[0]}</div></div><div style={{ color:T.gr,fontWeight:800,fontSize:14 }}>+€{((o.delivery_fee||1.9)*0.75).toFixed(2)}</div></div>))}
+            {myDone.length===0&&<div style={{ textAlign:"center",padding:24,color:T.mu,fontSize:13 }}>Complete deliveries to see history</div>}
+            {myDone.length>0&&<div style={{ fontSize:11,fontWeight:800,color:T.mu,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10 }}>Delivery history</div>}
+            {myDone.map(o=>(
+              <div key={o.id} style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:8,border:`1px solid ${T.br}` }}>
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4 }}>
+                  <div style={{ fontWeight:700,fontSize:13 }}>#{o.id?.slice(0,8)}</div>
+                  <div style={{ color:T.gr,fontWeight:900,fontSize:14 }}>+€{((o.delivery_fee||1.9)*0.75).toFixed(2)}</div>
+                </div>
+                <div style={{ fontSize:11,color:T.mu,marginBottom:2 }}>📍 {o.customer_address?.split(",")[0]}</div>
+                <div style={{ fontSize:11,color:T.mu }}>
+                  {new Date(o.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+                  {o.customer_name&&<span> · {o.customer_name}</span>}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
