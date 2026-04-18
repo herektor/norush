@@ -792,15 +792,30 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
   const [rest, setRest] = useState(null);
   const [myOrderId, setMyOrderId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [orderHistory, setOrderHistory] = useState([]);
   const T = D;
   const profile = user.profile;
 
   useEffect(()=>{
     db("restaurants","GET",null,"?is_approved=eq.true&select=*").then(d=>{ if(d) setRestaurants(d); });
+    // Restore active order from localStorage
+    const saved = localStorage.getItem("norush_active_order");
+    if(saved) setMyOrderId(saved);
   },[]);
 
+  // Load order history for this customer
+  useEffect(()=>{
+    if(!profile?.id) return;
+    db("orders","GET",null,`?customer_id=eq.${profile.id}&select=*&order=created_at.desc&limit=20`).then(d=>{ if(d) setOrderHistory(d); });
+  },[profile?.id, orders]);
+
   const myOrder = orders.find(o=>o.id===myOrderId)||null;
-  useEffect(()=>{ if(myOrderId) setScr("track"); },[myOrderId]);
+  // Auto-navigate to tracking if active order exists
+  useEffect(()=>{
+    if(myOrderId && myOrder && !["delivered"].includes(myOrder.status) && scr==="home") {
+      setScr("track");
+    }
+  },[myOrderId, myOrder?.status]);
 
   const addC=(item)=>setCart(p=>{const ex=p.find(i=>i.id===item.id);return ex?p.map(i=>i.id===item.id?{...i,qty:i.qty+1}:i):[...p,{...item,qty:1}];});
   const remC=(id)=>setCart(p=>p.map(i=>i.id===id?{...i,qty:i.qty-1}:i).filter(i=>i.qty>0));
@@ -829,8 +844,14 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
       subtotal:sub,delivery_fee:fee,total:tot,status:"new",pay_method:"card",
     },"",user.token);
     setLoading(false);
-    if(result?.[0]){setMyOrderId(result[0].id);await fetchOrders();setCart([]);}
-    else alert("Order failed — try again");
+    if(result?.[0]){
+      const oid = result[0].id;
+      setMyOrderId(oid);
+      localStorage.setItem("norush_active_order", oid);
+      await fetchOrders();
+      setCart([]);
+      setScr("track");
+    } else alert("Order failed — try again");
   };
 
   // TOP BAR
@@ -847,8 +868,21 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
       <div style={{ padding:"16px 16px 0" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
           <div style={{ fontSize:10, color:T.mu }}>📍 {profile?.address?.split(",")[0]||"Lauttasaari, Helsinki"}</div>
-          <button onClick={onSignOut} style={{ background:"none", border:"none", color:T.mu, fontSize:11, cursor:"pointer", fontFamily:"inherit" }}>Sign out</button>
+          <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+            <button onClick={()=>setScr("history")} style={{ background:T.hi,border:"none",color:T.mu,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:"4px 10px",borderRadius:7 }}>Orders</button>
+            <button onClick={onSignOut} style={{ background:"none", border:"none", color:T.mu, fontSize:11, cursor:"pointer", fontFamily:"inherit" }}>Sign out</button>
+          </div>
         </div>
+        {/* Active order banner */}
+        {myOrder && !["delivered"].includes(myOrder.status) && (
+          <div onClick={()=>setScr("track")} style={{ background:T.ac+"18",border:`1px solid ${T.ac}44`,borderRadius:12,padding:"12px 14px",marginBottom:12,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+            <div>
+              <div style={{ fontWeight:800,fontSize:13,color:T.ac }}>Active order in progress</div>
+              <div style={{ fontSize:11,color:T.mu,marginTop:2 }}>{STATUS_META[myOrder.status]?.label} · Tap to track</div>
+            </div>
+            <div style={{ fontSize:20 }}>🛵</div>
+          </div>
+        )}
         <div style={{ fontSize:28,fontWeight:900,letterSpacing:"-0.5px",lineHeight:1.2,marginBottom:16 }}>
           Hey {profile?.full_name?.split(" ")[0]||"there"} 👋<br/><span style={{ color:T.ac }}>What are you craving?</span>
         </div>
@@ -952,6 +986,46 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
       </div>
     </div>
   );
+
+  if(scr==="history") return(
+    <div style={{ background:T.bg,minHeight:"100vh",color:T.tx,fontFamily:"inherit" }}>
+      <TopBar title="Order history" back={()=>setScr("home")}/>
+      <div style={{ padding:"14px 14px 40px" }}>
+        {orderHistory.length===0&&(
+          <div style={{ textAlign:"center",padding:40,color:T.mu }}>
+            <div style={{ fontSize:40,marginBottom:10 }}>📦</div>
+            <div style={{ fontWeight:700,fontSize:15 }}>No orders yet</div>
+            <div style={{ fontSize:13,marginTop:4 }}>Your order history will appear here</div>
+          </div>
+        )}
+        {orderHistory.map(o=>{
+          const isActive = !["delivered"].includes(o.status);
+          return(
+            <div key={o.id} onClick={()=>{ if(isActive){setMyOrderId(o.id);localStorage.setItem("norush_active_order",o.id);setScr("track");} }}
+              style={{ background:T.sf,borderRadius:14,padding:"14px 16px",marginBottom:10,border:`1px solid ${isActive?T.ac+"55":T.br}`,cursor:isActive?"pointer":"default" }}>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 }}>
+                <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                  <span style={{ fontWeight:900,fontSize:13 }}>#{o.id?.slice(0,8)}</span>
+                  <Badge status={o.status}/>
+                </div>
+                <span style={{ fontWeight:800,fontSize:14,color:T.ac }}>€{o.total?.toFixed(2)}</span>
+              </div>
+              <div style={{ fontSize:12,color:T.mu,marginBottom:4 }}>
+                {new Date(o.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+              </div>
+              <div style={{ fontSize:12,color:T.mu,marginBottom:6 }}>{o.items?.length||0} items · {o.customer_address?.split(",")[0]}</div>
+              {o.items?.slice(0,2).map((item,i)=>(
+                <div key={i} style={{ fontSize:11,color:T.mu }}>{item.qty}× {item.name}</div>
+              ))}
+              {o.items?.length>2&&<div style={{ fontSize:11,color:T.mu }}>+{o.items.length-2} more items</div>}
+              {isActive&&<div style={{ marginTop:8,fontSize:12,fontWeight:700,color:T.ac }}>Tap to track →</div>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
 
   if(scr==="track") return(
     <div style={{ background:T.bg,minHeight:"100vh",color:T.tx,fontFamily:"inherit" }}>
