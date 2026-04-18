@@ -98,6 +98,12 @@ async function compressImage(file, maxWidth=1200, quality=0.82) {
 
 async function uploadImage(file, bucket, path, token) {
   try {
+    // Delete old file first so replacement is clean
+    await fetch(`${SURL}/storage/v1/object/${bucket}/${path}`, {
+      method: "DELETE",
+      headers: { apikey: SKEY, Authorization: `Bearer ${token}` },
+    });
+    // Compress then upload
     const compressed = await compressImage(file);
     const res = await fetch(`${SURL}/storage/v1/object/${bucket}/${path}`, {
       method: "POST",
@@ -105,7 +111,6 @@ async function uploadImage(file, bucket, path, token) {
         apikey: SKEY,
         Authorization: `Bearer ${token}`,
         "Content-Type": "image/jpeg",
-        "x-upsert": "true",
       },
       body: compressed,
     });
