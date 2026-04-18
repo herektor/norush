@@ -1478,7 +1478,7 @@ function CourierApp({ user, onSignOut, orders, fetchOrders }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   ADMIN APP
+   ADMIN APP — map, finance, approvals
 ═══════════════════════════════════════════════════════════════════ */
 function AdminApp({ user, onSignOut, orders, fetchOrders }) {
   const [tab, setTab] = useState("orders");
@@ -1486,13 +1486,19 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
   const T = N;
 
   useEffect(()=>{
-    dbAuth("restaurants","GET",null,"?is_approved=eq.false&select=*",user.token).then(d=>{ if(d) setPending(p=>({...p,restaurants:d})); });
-    dbAuth("couriers","GET",null,"?is_approved=eq.false&select=*",user.token).then(d=>{ if(d) setPending(p=>({...p,couriers:d})); });
+    loadPending();
   },[]);
+
+  const loadPending = async () => {
+    const r = await dbAuth("restaurants","GET",null,"?is_approved=eq.false&select=*",user.token);
+    const c = await dbAuth("couriers","GET",null,"?is_approved=eq.false&select=*",user.token);
+    if(r) setPending(p=>({...p,restaurants:r}));
+    if(c) setPending(p=>({...p,couriers:c}));
+  };
 
   const approve = async (type, id) => {
     await dbAuth(type,"PATCH",{is_approved:true,is_active:true},`?id=eq.${id}`,user.token);
-    setPending(p=>({...p,[type]:p[type].filter(x=>x.id!==id)}));
+    loadPending();
   };
   const reject = async (type, id) => {
     setPending(p=>({...p,[type]:p[type].filter(x=>x.id!==id)}));
@@ -1502,51 +1508,120 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
     fetchOrders();
   };
 
+  const delivered = orders.filter(o=>o.status==="delivered");
+  const active = orders.filter(o=>o.status!=="delivered");
   const revenue = orders.reduce((s,o)=>s+(o.total||0),0);
-  const commission = orders.filter(o=>o.status==="delivered").reduce((s,o)=>s+(o.total||0)*0.15,0);
+  const foodRevenue = orders.reduce((s,o)=>s+(o.subtotal||0),0);
+  const deliveryRevenue = orders.reduce((s,o)=>s+(o.delivery_fee||0),0);
+  const commission = delivered.reduce((s,o)=>s+(o.subtotal||0)*0.15,0);
+  const deliveryMargin = delivered.reduce((s,o)=>s+(o.delivery_fee||1.9)*0.25,0);
+  const courierPayouts = delivered.reduce((s,o)=>s+(o.delivery_fee||1.9)*0.75,0);
+  const restaurantPayouts = delivered.reduce((s,o)=>s+(o.subtotal||0)*0.85,0);
+  const grossMargin = commission + deliveryMargin;
+  const vatRate = 0.14; // Finland food VAT
+  const vatOwed = grossMargin * vatRate;
+  const netProfit = grossMargin - vatOwed;
   const pendingCount = pending.restaurants.length + pending.couriers.length;
 
+  // Per-restaurant breakdown
+  const restIds = [...new Set(delivered.map(o=>o.restaurant_id))];
+  const perRestaurant = restIds.map(id => {
+    const restOrders = delivered.filter(o=>o.restaurant_id===id);
+    const name = restOrders[0]?.customer_address ? `Restaurant` : `Restaurant`;
+    const foodSub = restOrders.reduce((s,o)=>s+(o.subtotal||0),0);
+    return {
+      id, name: restOrders[0]?.restaurant_name || `Rest. ${id?.slice(0,6)}`,
+      orders: restOrders.length,
+      foodRevenue: foodSub,
+      owed: foodSub * 0.85,
+      commission: foodSub * 0.15,
+    };
+  });
+
+  // Per-courier breakdown
+  const courierIds = [...new Set(delivered.filter(o=>o.courier_id).map(o=>o.courier_id))];
+  const perCourier = courierIds.map(id => {
+    const cOrders = delivered.filter(o=>o.courier_id===id);
+    const fees = cOrders.reduce((s,o)=>s+(o.delivery_fee||1.9),0);
+    return {
+      id, name: cOrders[0]?.courier_name || `Courier ${id?.slice(0,6)}`,
+      deliveries: cOrders.length,
+      earned: fees * 0.75,
+      margin: fees * 0.25,
+    };
+  });
+
+  const activeWithGps = active.filter(o=>o.courier_lat&&o.courier_lng);
+
   return(
-    <div style={{ background:T.bg,minHeight:"100vh",display:"flex",flexDirection:"column",color:T.tx,fontFamily:"inherit" }}>
-      <div style={{ padding:"12px 16px",background:T.sf,borderBottom:`1px solid ${T.br}`,display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+    <div style={{ background:T.bg,height:"100vh",display:"flex",flexDirection:"column",color:T.tx,fontFamily:"inherit",overflow:"hidden" }}>
+      {/* Header */}
+      <div style={{ padding:"14px 16px",background:T.sf,borderBottom:`1px solid ${T.br}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
         <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-          <div style={{ width:34,height:34,borderRadius:9,background:`linear-gradient(135deg,${T.ac},#FF6535)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>⚡</div>
-          <div><div style={{ fontWeight:900,fontSize:15 }}>NoRush Admin</div><div style={{ fontSize:10,color:T.mu }}>{user.email}</div></div>
+          <div style={{ width:38,height:38,borderRadius:10,background:`linear-gradient(135deg,${T.ac},#FF6535)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>⚡</div>
+          <div><div style={{ fontWeight:900,fontSize:16 }}>NoRush Admin</div><div style={{ fontSize:11,color:T.mu }}>{user.email}</div></div>
         </div>
-        <button onClick={onSignOut} style={{ background:"none",border:"none",color:T.mu,fontSize:11,cursor:"pointer",fontFamily:"inherit" }}>Sign out</button>
+        <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+          <button onClick={fetchOrders} style={{ background:T.hi,border:"none",borderRadius:8,padding:"7px 12px",fontSize:13,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>↻</button>
+          <button onClick={onSignOut} style={{ background:"none",border:"none",color:T.mu,fontSize:13,cursor:"pointer",fontFamily:"inherit" }}>Sign out</button>
+        </div>
       </div>
-      <div style={{ display:"flex",background:T.sf,borderBottom:`1px solid ${T.br}` }}>
-        {[{k:"orders",l:"Orders"},{k:"approvals",l:`Approvals${pendingCount>0?` (${pendingCount})`:""}`},{k:"finance",l:"Finance"}].map(t=>(
-          <button key={t.k} onClick={()=>setTab(t.k)} style={{ flex:1,padding:"10px 0",border:"none",background:"none",borderBottom:`2px solid ${tab===t.k?T.ac:"transparent"}`,color:tab===t.k?T.ac:T.mu,fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>{t.l}</button>
+
+      {/* KPI strip */}
+      <div style={{ display:"flex",gap:6,padding:"10px 14px",background:T.sf,borderBottom:`1px solid ${T.br}`,flexShrink:0,overflowX:"auto" }}>
+        {[
+          {l:"GMV",v:`€${revenue.toFixed(0)}`,c:T.gr,bg:T.gr+"18"},
+          {l:"Your margin",v:`€${grossMargin.toFixed(0)}`,c:T.pu,bg:T.pu+"18"},
+          {l:"Net profit",v:`€${netProfit.toFixed(0)}`,c:"#22C55E",bg:"#22C55E18"},
+          {l:"Active",v:active.length,c:T.bl,bg:T.bl+"18"},
+          {l:"Delivered",v:delivered.length,c:T.mu,bg:T.hi},
+        ].map(k=>(
+          <div key={k.l} style={{ background:k.bg,border:`1px solid ${k.c}22`,borderRadius:10,padding:"8px 12px",flexShrink:0,minWidth:80 }}>
+            <div style={{ fontSize:18,fontWeight:900,color:k.c }}>{k.v}</div>
+            <div style={{ fontSize:9,fontWeight:800,color:k.c,textTransform:"uppercase",letterSpacing:"0.05em",marginTop:1 }}>{k.l}</div>
+          </div>
         ))}
       </div>
-      <div style={{ flex:1,overflowY:"auto",padding:"14px" }}>
-        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16 }}>
-          {[{l:"GMV",v:`€${revenue.toFixed(0)}`,c:T.gr,bg:T.gr+"18"},{l:"Commission",v:`€${commission.toFixed(0)}`,c:T.pu,bg:T.pu+"18"},{l:"Active",v:orders.filter(o=>o.status!=="delivered").length,c:T.bl,bg:T.bl+"18"},{l:"Delivered",v:orders.filter(o=>o.status==="delivered").length,c:"#22C55E",bg:"#22C55E18"}].map(k=>(
-            <div key={k.l} style={{ background:k.bg,border:`1px solid ${k.c}22`,borderRadius:12,padding:"12px 14px" }}>
-              <div style={{ fontSize:22,fontWeight:900,color:k.c }}>{k.v}</div>
-              <div style={{ fontSize:10,fontWeight:800,color:k.c,textTransform:"uppercase",letterSpacing:"0.05em",marginTop:2 }}>{k.l}</div>
-            </div>
-          ))}
-        </div>
 
+      {/* Tabs */}
+      <div style={{ display:"flex",background:T.sf,borderBottom:`1px solid ${T.br}`,flexShrink:0,overflowX:"auto" }}>
+        {[
+          {k:"orders",l:"Orders"},
+          {k:"map",l:"🗺 Map"},
+          {k:"approvals",l:`Approvals${pendingCount>0?` (${pendingCount})`:""}`},
+          {k:"finance",l:"Finance"},
+        ].map(t=>(
+          <button key={t.k} onClick={()=>setTab(t.k)} style={{ flex:1,padding:"11px 8px",border:"none",background:"none",borderBottom:`2px solid ${tab===t.k?T.ac:"transparent"}`,color:tab===t.k?T.ac:T.mu,fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",minWidth:70 }}>{t.l}</button>
+        ))}
+      </div>
+
+      <div style={{ flex:1,overflowY:"auto",padding:"14px" }}>
+
+        {/* ORDERS TAB */}
         {tab==="orders"&&(
           <>
-            <button onClick={fetchOrders} style={{ width:"100%",background:T.hi,border:"none",borderRadius:8,padding:"8px 0",fontSize:12,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit",marginBottom:12 }}>↻ Refresh all orders</button>
-            {orders.length===0&&<div style={{ background:T.sf,borderRadius:12,padding:24,textAlign:"center",color:T.mu,fontSize:12 }}>No orders yet.</div>}
+            {orders.length===0&&<div style={{ background:T.sf,borderRadius:12,padding:24,textAlign:"center",color:T.mu,fontSize:13 }}>No orders yet.</div>}
             {orders.map(o=>(
               <div key={o.id} style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:10,border:`1px solid ${T.br}` }}>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 }}>
                   <div style={{ display:"flex",alignItems:"center",gap:8 }}>
                     <span style={{ fontWeight:900,fontSize:13 }}>#{o.id?.slice(0,8)}</span>
                     <Badge status={o.status}/>
+                    {o.refunded&&<span style={{ background:"#EF444415",color:"#EF4444",fontSize:9,fontWeight:800,padding:"1px 6px",borderRadius:10 }}>REFUNDED</span>}
                   </div>
-                  <span style={{ fontWeight:800,fontSize:13,color:T.gr }}>€{o.total?.toFixed(2)}</span>
+                  <span style={{ fontWeight:800,fontSize:14,color:T.gr }}>€{o.total?.toFixed(2)}</span>
                 </div>
-                <div style={{ fontSize:11,color:T.mu,marginBottom:8 }}>{o.customer_name} · {o.customer_address?.split(",")[0]}{o.courier_name&&<span style={{ color:T.gr }}> · 🛵 {o.courier_name}</span>}</div>
+                <div style={{ fontSize:12,color:T.mu,marginBottom:8 }}>
+                  {o.customer_name} · {o.customer_address?.split(",")[0]}
+                  {o.courier_name&&<span style={{ color:T.gr }}> · 🛵 {o.courier_name}</span>}
+                </div>
+                <div style={{ fontSize:11,color:T.mu,marginBottom:8 }}>
+                  Food: €{(o.subtotal||0).toFixed(2)} · Delivery: €{(o.delivery_fee||0).toFixed(2)}
+                  {o.status==="delivered"&&<span style={{ color:T.pu }}> · Your cut: €{((o.subtotal||0)*0.15+(o.delivery_fee||1.9)*0.25).toFixed(2)}</span>}
+                </div>
                 <div style={{ display:"flex",gap:5,flexWrap:"wrap" }}>
                   {Object.keys(STATUS_META).filter(s=>s!==o.status).map(s=>(
-                    <button key={s} onClick={()=>forceStatus(o.id,s)} style={{ background:T.hi,color:T.mu,border:`1px solid ${T.br}`,borderRadius:6,padding:"3px 8px",fontSize:9,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>→{STATUS_META[s].short}</button>
+                    <button key={s} onClick={()=>forceStatus(o.id,s)} style={{ background:T.hi,color:T.mu,border:`1px solid ${T.br}`,borderRadius:6,padding:"4px 8px",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>→{STATUS_META[s].short}</button>
                   ))}
                 </div>
               </div>
@@ -1554,60 +1629,176 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
           </>
         )}
 
+        {/* MAP TAB */}
+        {tab==="map"&&(
+          <>
+            <div style={{ fontSize:12,color:T.mu,marginBottom:10,fontWeight:600 }}>
+              {activeWithGps.length>0?`${activeWithGps.length} active courier${activeWithGps.length!==1?"s":""} on map`:"No active couriers right now — map shows Lauttasaari"}
+            </div>
+            {/* Always show map centered on Lauttasaari */}
+            <div style={{ borderRadius:14,overflow:"hidden",marginBottom:12,border:`1px solid ${T.br}` }}>
+              <LiveMap
+                restLat={60.1575} restLng={24.8855} restName="Lauttasaari"
+                custLat={activeWithGps[0]?.customer_lat} custLng={activeWithGps[0]?.customer_lng}
+                courLat={activeWithGps[0]?.courier_lat} courLng={activeWithGps[0]?.courier_lng}
+                height={280} zoom={14}
+              />
+            </div>
+            {/* Active deliveries list */}
+            {active.length===0&&<div style={{ background:T.sf,borderRadius:12,padding:20,textAlign:"center",color:T.mu,fontSize:13 }}>No active deliveries right now.</div>}
+            {active.map(o=>(
+              <div key={o.id} style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:10,border:`1px solid ${o.courier_lat?T.gr+"44":T.br}` }}>
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6 }}>
+                  <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                    <span style={{ fontWeight:900,fontSize:13 }}>#{o.id?.slice(0,8)}</span>
+                    <Badge status={o.status}/>
+                  </div>
+                  <div style={{ fontSize:11,color:o.courier_lat?T.gr:T.mu,fontWeight:700 }}>
+                    {o.courier_lat?`📍 GPS live`:o.courier_name?"🛵 No GPS":"⏳ No courier"}
+                  </div>
+                </div>
+                <div style={{ fontSize:12,color:T.mu }}>
+                  {o.customer_name} · {o.customer_address?.split(",")[0]}
+                  {o.courier_name&&<span style={{ color:T.gr }}> · 🛵 {o.courier_name}</span>}
+                </div>
+                {o.courier_lat&&o.courier_lng&&(
+                  <div style={{ borderRadius:10,overflow:"hidden",marginTop:8,height:120 }}>
+                    <LiveMap restLat={60.1575} restLng={24.8855} restName="Restaurant" custLat={o.customer_lat} custLng={o.customer_lng} courLat={o.courier_lat} courLng={o.courier_lng} height={120} zoom={14}/>
+                  </div>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+
+        {/* APPROVALS TAB */}
         {tab==="approvals"&&(
           <>
-            <div style={{ fontSize:11,fontWeight:800,color:T.mu,textTransform:"uppercase",marginBottom:10 }}>Pending restaurants</div>
-            {pending.restaurants.length===0&&<div style={{ background:T.sf,borderRadius:10,padding:16,textAlign:"center",color:T.mu,fontSize:12,marginBottom:16 }}>No pending restaurants</div>}
+            <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
+              <div style={{ fontSize:13,fontWeight:800,color:T.mu,textTransform:"uppercase",letterSpacing:"0.05em" }}>Restaurants</div>
+              <button onClick={loadPending} style={{ background:T.hi,border:"none",borderRadius:6,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>↻ Refresh</button>
+            </div>
+            {pending.restaurants.length===0&&<div style={{ background:T.sf,borderRadius:10,padding:16,textAlign:"center",color:T.mu,fontSize:13,marginBottom:16 }}>No pending restaurants</div>}
             {pending.restaurants.map(r=>(
-              <div key={r.id} style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:10,border:`1px solid ${T.br}` }}>
-                <div style={{ fontWeight:800,fontSize:14,marginBottom:4 }}>{r.name}</div>
-                <div style={{ fontSize:11,color:T.mu,marginBottom:10 }}>{r.cuisine} · {r.address}<br/>{r.email} · {r.ytunnus}</div>
+              <div key={r.id} style={{ background:T.sf,borderRadius:12,padding:"14px 16px",marginBottom:10,border:`1px solid ${T.br}` }}>
+                <div style={{ fontWeight:800,fontSize:15,marginBottom:4 }}>{r.name}</div>
+                <div style={{ fontSize:12,color:T.mu,marginBottom:4 }}>{r.cuisine} · {r.address}</div>
+                <div style={{ fontSize:12,color:T.mu,marginBottom:10 }}>{r.email}{r.ytunnus&&` · ${r.ytunnus}`}</div>
                 <div style={{ display:"flex",gap:8 }}>
-                  <button onClick={()=>approve("restaurants",r.id)} style={{ flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:8,padding:"9px 0",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>✓ Approve</button>
-                  <button onClick={()=>reject("restaurants",r.id)} style={{ flex:0.4,background:T.hi,color:T.mu,border:"none",borderRadius:8,padding:"9px 0",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>✗ Reject</button>
+                  <button onClick={()=>approve("restaurants",r.id)} style={{ flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:9,padding:"10px 0",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>✓ Approve</button>
+                  <button onClick={()=>reject("restaurants",r.id)} style={{ flex:0.4,background:T.hi,color:T.mu,border:"none",borderRadius:9,padding:"10px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>✗ Reject</button>
                 </div>
               </div>
             ))}
-            <div style={{ fontSize:11,fontWeight:800,color:T.mu,textTransform:"uppercase",marginBottom:10,marginTop:16 }}>Pending couriers</div>
-            {pending.couriers.length===0&&<div style={{ background:T.sf,borderRadius:10,padding:16,textAlign:"center",color:T.mu,fontSize:12 }}>No pending couriers</div>}
+            <div style={{ fontSize:13,fontWeight:800,color:T.mu,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:12,marginTop:20 }}>Couriers</div>
+            {pending.couriers.length===0&&<div style={{ background:T.sf,borderRadius:10,padding:16,textAlign:"center",color:T.mu,fontSize:13 }}>No pending couriers</div>}
             {pending.couriers.map(c=>(
-              <div key={c.id} style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:10,border:`1px solid ${T.br}` }}>
-                <div style={{ fontWeight:800,fontSize:14,marginBottom:4 }}>{c.name}</div>
-                <div style={{ fontSize:11,color:T.mu,marginBottom:4 }}>{c.vehicle} · {c.email}</div>
+              <div key={c.id} style={{ background:T.sf,borderRadius:12,padding:"14px 16px",marginBottom:10,border:`1px solid ${T.br}` }}>
+                <div style={{ fontWeight:800,fontSize:15,marginBottom:4 }}>{c.name}</div>
+                <div style={{ fontSize:12,color:T.mu,marginBottom:4 }}>{c.vehicle} · {c.email||c.phone}</div>
                 <div style={{ display:"flex",gap:6,marginBottom:10,flexWrap:"wrap" }}>
-                  {[["ID",c.has_id_doc],["Hygiene",c.has_hygiene_cert]].map(([l,ok])=>(
-                    <span key={l} style={{ background:ok?"#22C55E18":"#EF444418",color:ok?"#22C55E":"#EF4444",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:6 }}>{ok?"✓":"✗"} {l}</span>
+                  {[["🪪 ID",c.has_id_doc],["🧼 Hygiene",c.has_hygiene_cert]].map(([l,ok])=>(
+                    <span key={l} style={{ background:ok?"#22C55E18":"#EF444418",color:ok?"#22C55E":"#EF4444",fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:7 }}>{ok?"✓":"✗"} {l}</span>
                   ))}
                 </div>
                 <div style={{ display:"flex",gap:8 }}>
-                  <button onClick={()=>approve("couriers",c.id)} style={{ flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:8,padding:"9px 0",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>✓ Approve</button>
-                  <button onClick={()=>reject("couriers",c.id)} style={{ flex:0.4,background:T.hi,color:T.mu,border:"none",borderRadius:8,padding:"9px 0",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>✗ Reject</button>
+                  <button onClick={()=>approve("couriers",c.id)} style={{ flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:9,padding:"10px 0",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>✓ Approve</button>
+                  <button onClick={()=>reject("couriers",c.id)} style={{ flex:0.4,background:T.hi,color:T.mu,border:"none",borderRadius:9,padding:"10px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>✗ Reject</button>
                 </div>
               </div>
             ))}
           </>
         )}
 
+        {/* FINANCE TAB */}
         {tab==="finance"&&(
-          <div style={{ background:T.sf,borderRadius:12,padding:"14px 16px",border:`1px solid ${T.br}` }}>
-            <div style={{ fontSize:11,fontWeight:800,color:T.mu,textTransform:"uppercase",marginBottom:12 }}>Platform P&L</div>
-            {[
-              {l:"Gross order value",v:`€${revenue.toFixed(2)}`,c:T.tx},
-              {l:"Commission revenue (15%)",v:`+€${commission.toFixed(2)}`,c:T.gr},
-              {l:"Courier payouts (75% of fees)",v:`-€${orders.filter(o=>o.status==="delivered").reduce((s,o)=>s+(o.delivery_fee||1.9)*0.75,0).toFixed(2)}`,c:"#EF4444"},
-              {l:"Restaurant payouts (85%)",v:`-€${orders.filter(o=>o.status==="delivered").reduce((s,o)=>s+(o.subtotal||0)*0.85,0).toFixed(2)}`,c:"#EF4444"},
-            ].map(k=>(
-              <div key={k.l} style={{ display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:`1px solid ${T.br}` }}>
-                <span style={{ fontSize:12,color:T.mu }}>{k.l}</span>
-                <span style={{ fontSize:13,fontWeight:800,color:k.c }}>{k.v}</span>
+          <>
+            {/* Summary card */}
+            <div style={{ background:T.sf,borderRadius:14,padding:"16px 16px",marginBottom:16,border:`1px solid ${T.br}` }}>
+              <div style={{ fontSize:12,fontWeight:800,color:T.mu,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:12 }}>Platform P&L — all time</div>
+              {[
+                {l:"Gross order value (GMV)",v:`€${revenue.toFixed(2)}`,c:T.tx,indent:false},
+                {l:"Food revenue",v:`€${foodRevenue.toFixed(2)}`,c:T.mu,indent:true},
+                {l:"Delivery fees collected",v:`€${deliveryRevenue.toFixed(2)}`,c:T.mu,indent:true},
+                {l:"─────────────────",v:"",c:T.br,indent:false},
+                {l:"Restaurant payouts (85% of food)",v:`-€${restaurantPayouts.toFixed(2)}`,c:"#EF4444",indent:false},
+                {l:"Courier payouts (75% of delivery)",v:`-€${courierPayouts.toFixed(2)}`,c:"#EF4444",indent:false},
+                {l:"─────────────────",v:"",c:T.br,indent:false},
+                {l:"Your commission (15% of food)",v:`+€${commission.toFixed(2)}`,c:T.gr,indent:false},
+                {l:"Your delivery margin (25%)",v:`+€${deliveryMargin.toFixed(2)}`,c:T.gr,indent:false},
+                {l:"GROSS MARGIN",v:`€${grossMargin.toFixed(2)}`,c:T.pu,indent:false},
+                {l:"VAT liability (~14% food)",v:`-€${vatOwed.toFixed(2)}`,c:T.yw,indent:false},
+                {l:"NET PROFIT",v:`€${netProfit.toFixed(2)}`,c:"#22C55E",indent:false},
+              ].map((k,i)=>(
+                k.l.startsWith("───")?
+                <div key={i} style={{ borderTop:`1px solid ${T.br}`,margin:"6px 0" }}/>:
+                <div key={i} style={{ display:"flex",justifyContent:"space-between",padding:"6px 0",paddingLeft:k.indent?12:0 }}>
+                  <span style={{ fontSize:12,color:k.indent?T.mu:T.tx }}>{k.l}</span>
+                  <span style={{ fontSize:13,fontWeight:k.l==="NET PROFIT"||k.l==="GROSS MARGIN"?900:700,color:k.c }}>{k.v}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Per restaurant */}
+            <div style={{ fontSize:12,fontWeight:800,color:T.mu,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10 }}>Per restaurant — what you owe them</div>
+            {perRestaurant.length===0&&<div style={{ background:T.sf,borderRadius:10,padding:16,textAlign:"center",color:T.mu,fontSize:13,marginBottom:16 }}>No completed orders yet</div>}
+            {perRestaurant.map(r=>(
+              <div key={r.id} style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:10,border:`1px solid ${T.br}` }}>
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8 }}>
+                  <div style={{ fontWeight:800,fontSize:14 }}>{r.name}</div>
+                  <div style={{ fontWeight:900,fontSize:14,color:"#EF4444" }}>Owe: €{r.owed.toFixed(2)}</div>
+                </div>
+                <div style={{ fontSize:11,color:T.mu,marginBottom:6 }}>{r.orders} orders · €{r.foodRevenue.toFixed(2)} food revenue</div>
+                <div style={{ display:"flex",gap:8 }}>
+                  <div style={{ flex:1,background:T.hi,borderRadius:8,padding:"7px 10px",textAlign:"center" }}>
+                    <div style={{ fontSize:13,fontWeight:800,color:"#EF4444" }}>€{r.owed.toFixed(2)}</div>
+                    <div style={{ fontSize:9,color:T.mu,textTransform:"uppercase" }}>To restaurant (85%)</div>
+                  </div>
+                  <div style={{ flex:1,background:T.hi,borderRadius:8,padding:"7px 10px",textAlign:"center" }}>
+                    <div style={{ fontSize:13,fontWeight:800,color:T.gr }}>€{r.commission.toFixed(2)}</div>
+                    <div style={{ fontSize:9,color:T.mu,textTransform:"uppercase" }}>Your commission</div>
+                  </div>
+                </div>
               </div>
             ))}
-          </div>
+
+            {/* Per courier */}
+            <div style={{ fontSize:12,fontWeight:800,color:T.mu,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10,marginTop:8 }}>Per courier — what you owe them</div>
+            {perCourier.length===0&&<div style={{ background:T.sf,borderRadius:10,padding:16,textAlign:"center",color:T.mu,fontSize:13 }}>No completed deliveries yet</div>}
+            {perCourier.map(c=>(
+              <div key={c.id} style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:10,border:`1px solid ${T.br}` }}>
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8 }}>
+                  <div style={{ fontWeight:800,fontSize:14 }}>🛵 {c.name}</div>
+                  <div style={{ fontWeight:900,fontSize:14,color:"#EF4444" }}>Owe: €{c.earned.toFixed(2)}</div>
+                </div>
+                <div style={{ fontSize:11,color:T.mu,marginBottom:6 }}>{c.deliveries} deliveries</div>
+                <div style={{ display:"flex",gap:8 }}>
+                  <div style={{ flex:1,background:T.hi,borderRadius:8,padding:"7px 10px",textAlign:"center" }}>
+                    <div style={{ fontSize:13,fontWeight:800,color:"#EF4444" }}>€{c.earned.toFixed(2)}</div>
+                    <div style={{ fontSize:9,color:T.mu,textTransform:"uppercase" }}>To courier (75%)</div>
+                  </div>
+                  <div style={{ flex:1,background:T.hi,borderRadius:8,padding:"7px 10px",textAlign:"center" }}>
+                    <div style={{ fontSize:13,fontWeight:800,color:T.gr }}>€{c.margin.toFixed(2)}</div>
+                    <div style={{ fontSize:9,color:T.mu,textTransform:"uppercase" }}>Your margin (25%)</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Tax note */}
+            <div style={{ background:T.yw+"18",border:`1px solid ${T.yw}33`,borderRadius:12,padding:"12px 14px",marginTop:8 }}>
+              <div style={{ fontSize:12,fontWeight:800,color:T.yw,marginBottom:4 }}>⚠️ Tax reminder</div>
+              <div style={{ fontSize:11,color:T.mu,lineHeight:1.6 }}>
+                Food delivery in Finland is subject to 14% VAT on your commission revenue. Estimated VAT owed: <strong style={{ color:T.yw }}>€{vatOwed.toFixed(2)}</strong>. Consult a Finnish accountant for accurate tax filing. Register for VAT once revenue exceeds €15,000/year.
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>
   );
 }
+
 
 /* ═══════════════════════════════════════════════════════════════════
    ROOT — orchestrates everything
