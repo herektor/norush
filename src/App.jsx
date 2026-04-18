@@ -1457,6 +1457,31 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
                   {editItem?.id===item.id?(
                     // Edit form
                     <div style={{ background:T.sf,borderRadius:12,padding:"14px 14px",marginBottom:10,border:`2px solid ${T.bl}` }}>
+                      {/* Photo replace in edit mode */}
+                      <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:10 }}>
+                        <label style={{ cursor:"pointer",flexShrink:0 }}>
+                          <div style={{ width:56,height:56,borderRadius:9,overflow:"hidden",position:"relative",background:T.hi,display:"flex",alignItems:"center",justifyContent:"center" }}>
+                            {editItem.photo_url
+                              ? <img src={editItem.photo_url} style={{ width:"100%",height:"100%",objectFit:"cover" }} alt=""/>
+                              : <span style={{ fontSize:22 }}>📷</span>
+                            }
+                            <div style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:2 }}>
+                              <span style={{ fontSize:14 }}>📷</span>
+                              <span style={{ fontSize:8,color:"#fff",fontWeight:700 }}>Change</span>
+                            </div>
+                          </div>
+                          <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display:"none" }}
+                            onChange={async e=>{
+                              const file=e.target.files[0]; if(!file) return;
+                              if(file.size>5*1024*1024){alert("Max 5MB");return;}
+                              const url=await uploadMenuPhoto(file,editItem.id);
+                              if(url) setEditItem(p=>({...p,photo_url:url}));
+                              e.target.value="";
+                            }}
+                          />
+                        </label>
+                        <div style={{ fontSize:11,color:T.mu,lineHeight:1.5 }}>Tap photo to<br/>change image</div>
+                      </div>
                       <div style={{ display:"grid",gridTemplateColumns:"2fr 1fr",gap:"0 10px",marginBottom:8 }}>
                         <input value={editItem.name} onChange={e=>setEditItem(p=>({...p,name:e.target.value}))}
                           style={{ padding:"9px 11px",borderRadius:8,fontSize:14,border:`1.5px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none" }}/>
@@ -1477,13 +1502,10 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
                   ):(
                     // Item row
                     <div style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:8,border:`1px solid ${T.br}`,display:"flex",alignItems:"center",gap:10,opacity:item.is_available?1:0.5 }}>
-                      <ImageUploadBtn
-                        label={item.photo_url?"":"📷 Add photo"}
-                        currentUrl={item.photo_url}
-                        onUpload={(f)=>uploadMenuPhoto(f,item.id)}
-                        size={56}
-                        token={user.token}
-                      />
+                      {item.photo_url
+                        ? <img src={item.photo_url} style={{ width:56,height:56,borderRadius:9,objectFit:"cover",flexShrink:0 }} alt={item.name}/>
+                        : <div style={{ width:40,height:40,borderRadius:9,background:T.hi,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0,color:T.mu }}>🍽</div>
+                      }
                       <div style={{ flex:1 }}>
                         <div style={{ fontWeight:700,fontSize:14 }}>{item.name}</div>
                         {item.description&&<div style={{ fontSize:12,color:T.mu,marginTop:2 }}>{item.description}</div>}
