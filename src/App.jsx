@@ -178,7 +178,14 @@ function LiveMap({ restLat=60.1575, restLng=24.8855, restName="Restaurant",
       const pts=[[restLat,restLng]];
       if(custLat&&custLng) pts.push([custLat,custLng]);
       if(courLat&&courLng) pts.push([courLat,courLng]);
-      if(pts.length>1) m.fitBounds(pts,{padding:[40,40]});
+      if(pts.length>1){
+        const lats=pts.map(p=>p[0]);
+        const lngs=pts.map(p=>p[1]);
+        const latDiff=Math.max(...lats)-Math.min(...lats);
+        const lngDiff=Math.max(...lngs)-Math.min(...lngs);
+        if(latDiff<0.1&&lngDiff<0.1) m.fitBounds(pts,{padding:[50,50],maxZoom:16});
+        else m.setView([restLat,restLng],15);
+      }
       mapRef.current=m;
     };
     document.head.appendChild(s);
@@ -783,9 +790,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
   const [menuItems, setMenuItems] = useState([]);
   const [cart, setCart] = useState([]);
   const [rest, setRest] = useState(null);
-  const [myOrderId, setMyOrderId] = useState(
-  localStorage.getItem("norush_active_order") || null
-);
+  const [myOrderId, setMyOrderId] = useState(null);
   const [loading, setLoading] = useState(false);
   const T = D;
   const profile = user.profile;
@@ -824,14 +829,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
       subtotal:sub,delivery_fee:fee,total:tot,status:"new",pay_method:"card",
     },"",user.token);
     setLoading(false);
-    if(result?.[0]){
-  const newOrder = result[0];
-  setMyOrderId(newOrder.id);
-  localStorage.setItem("norush_active_order", newOrder.id);
-  await fetchOrders();
-  setCart([]);
-  setScr("track");
-}
+    if(result?.[0]){setMyOrderId(result[0].id);await fetchOrders();setCart([]);}
     else alert("Order failed — try again");
   };
 
@@ -851,7 +849,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
           <div style={{ fontSize:10, color:T.mu }}>📍 {profile?.address?.split(",")[0]||"Lauttasaari, Helsinki"}</div>
           <button onClick={onSignOut} style={{ background:"none", border:"none", color:T.mu, fontSize:11, cursor:"pointer", fontFamily:"inherit" }}>Sign out</button>
         </div>
-        <div style={{ fontSize:22,fontWeight:900,letterSpacing:"-0.5px",lineHeight:1.2,marginBottom:14 }}>
+        <div style={{ fontSize:28,fontWeight:900,letterSpacing:"-0.5px",lineHeight:1.2,marginBottom:16 }}>
           Hey {profile?.full_name?.split(" ")[0]||"there"} 👋<br/><span style={{ color:T.ac }}>What are you craving?</span>
         </div>
         <div style={{ background:`linear-gradient(130deg,${T.ac},#FF6535)`,borderRadius:14,padding:"14px 16px",marginBottom:18,position:"relative",overflow:"hidden" }}>
@@ -868,7 +866,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
           <div key={r.id} onClick={()=>loadMenu(r)} style={{ background:T.sf,borderRadius:14,overflow:"hidden",marginBottom:10,cursor:"pointer",border:`1px solid ${T.br}`,transition:"transform 0.1s" }}
             onMouseEnter={e=>e.currentTarget.style.transform="scale(1.01)"}
             onMouseLeave={e=>e.currentTarget.style.transform=""}>
-            <div style={{ height:62,background:`linear-gradient(135deg,#FF3B2F33,#FF6B3511)`,display:"flex",alignItems:"center",gap:14,padding:"0 16px" }}>
+            <div style={{ height:80,background:`linear-gradient(135deg,#FF3B2F33,#FF6B3511)`,display:"flex",alignItems:"center",gap:14,padding:"0 16px" }}>
               <span style={{ fontSize:32 }}>🍽</span>
               <div style={{ flex:1 }}>
                 <div style={{ fontWeight:800,fontSize:14 }}>{r.name}</div>
@@ -967,7 +965,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
                 {myOrder.status==="delivered"?"🎉":myOrder.status==="picked_up"?"🛵":myOrder.status==="preparing"?"👨‍🍳":"✓"}
               </div>
               <div>
-                <div style={{ fontWeight:800,fontSize:14 }}>{STATUS_META[myOrder.status]?.label}</div>
+                <div style={{ fontWeight:800,fontSize:17 }}>{STATUS_META[myOrder.status]?.label}</div>
                 <div style={{ fontSize:11,color:T.mu,marginTop:2 }}>Order #{myOrder.id?.slice(0,8)} · €{myOrder.total?.toFixed(2)}</div>
               </div>
             </div>
@@ -998,17 +996,75 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   RESTAURANT APP
+   RESTAURANT APP — with orders + menu editor tabs
 ═══════════════════════════════════════════════════════════════════ */
 function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
+  const [tab, setTab] = useState("orders");
   const [sel, setSel] = useState(null);
   const [updating, setUpdating] = useState(null);
+  const [menuItems, setMenuItems] = useState([]);
+  const [menuLoading, setMenuLoading] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [newItem, setNewItem] = useState({ name:"", price:"", description:"", category:"Mains", is_available:true });
+  const [addingItem, setAddingItem] = useState(false);
   const T = L;
   const NEXT={new:"accepted",accepted:"preparing",heading_to_restaurant:"preparing",preparing:"ready"};
-  const BTN={new:"✓ Accept",accepted:"🍳 Start cooking",heading_to_restaurant:"🍳 Start cooking",preparing:"🔔 Mark ready"};
+  const BTN={new:"✓ Accept order",accepted:"🍳 Start cooking",heading_to_restaurant:"🍳 Start cooking",preparing:"🔔 Mark ready"};
+  const CATEGORIES = ["Starters","Mains","Salads","Desserts","Drinks","Sides"];
 
-  // Filter to only this restaurant's orders
   const myOrders = orders.filter(o => o.restaurant_id === user.profile?.id);
+  const newCount = myOrders.filter(o=>o.status==="new").length;
+
+  useEffect(()=>{
+    if(tab==="menu") loadMenu();
+  },[tab]);
+
+  const loadMenu = async () => {
+    if(!user.profile?.id) return;
+    setMenuLoading(true);
+    const items = await db("menu_items","GET",null,`?restaurant_id=eq.${user.profile.id}&select=*&order=category.asc,name.asc`);
+    if(items) setMenuItems(items);
+    setMenuLoading(false);
+  };
+
+  const toggleAvailability = async (item) => {
+    await dbAuth("menu_items","PATCH",{is_available:!item.is_available},`?id=eq.${item.id}`,user.token);
+    loadMenu();
+  };
+
+  const deleteItem = async (id) => {
+    if(!confirm("Delete this item?")) return;
+    await dbAuth("menu_items","DELETE",null,`?id=eq.${id}`,user.token);
+    loadMenu();
+  };
+
+  const saveNewItem = async () => {
+    if(!newItem.name||!newItem.price) { alert("Name and price required"); return; }
+    setMenuLoading(true);
+    await dbAuth("menu_items","POST",{
+      restaurant_id: user.profile.id,
+      name: newItem.name,
+      description: newItem.description,
+      price: parseFloat(newItem.price),
+      category: newItem.category,
+      is_available: true,
+    },"",user.token);
+    setNewItem({ name:"", price:"", description:"", category:"Mains", is_available:true });
+    setAddingItem(false);
+    loadMenu();
+  };
+
+  const saveEdit = async () => {
+    if(!editItem.name||!editItem.price) { alert("Name and price required"); return; }
+    await dbAuth("menu_items","PATCH",{
+      name: editItem.name,
+      description: editItem.description,
+      price: parseFloat(editItem.price),
+      category: editItem.category,
+    },`?id=eq.${editItem.id}`,user.token);
+    setEditItem(null);
+    loadMenu();
+  };
 
   async function advance(order){
     const next=NEXT[order.status]; if(!next) return;
@@ -1021,78 +1077,246 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
   const revenue = myOrders.filter(o=>o.status==="delivered").reduce((s,o)=>s+(o.total||0),0);
 
   return(
-    <div style={{ background:T.bg,minHeight:"100vh",display:"flex",flexDirection:"column",fontFamily:"inherit",color:T.tx }}>
-      <div style={{ padding:"12px 16px",background:T.sf,borderBottom:`1px solid ${T.br}`,display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+    <div style={{ background:T.bg,height:"100vh",display:"flex",flexDirection:"column",fontFamily:"inherit",color:T.tx,overflow:"hidden" }}>
+      {/* Header */}
+      <div style={{ padding:"14px 16px",background:T.sf,borderBottom:`1px solid ${T.br}`,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0 }}>
         <div style={{ display:"flex",alignItems:"center",gap:10 }}>
-          <div style={{ width:34,height:34,borderRadius:9,background:T.ac,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18 }}>🍽</div>
-          <div><div style={{ fontWeight:900,fontSize:15 }}>{user.profile?.name||"Restaurant"}</div><div style={{ fontSize:10,color:T.mu }}>Lauttasaari</div></div>
+          <div style={{ width:38,height:38,borderRadius:10,background:T.ac,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>🍽</div>
+          <div>
+            <div style={{ fontWeight:900,fontSize:16 }}>{user.profile?.name||"Restaurant"}</div>
+            <div style={{ fontSize:11,color:T.mu }}>Lauttasaari · Dashboard</div>
+          </div>
         </div>
         <div style={{ display:"flex",gap:8,alignItems:"center" }}>
-          <button onClick={fetchOrders} style={{ background:T.hi,border:"none",borderRadius:7,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>↻</button>
-          <button onClick={onSignOut} style={{ background:"none",border:"none",color:T.mu,fontSize:11,cursor:"pointer",fontFamily:"inherit" }}>Sign out</button>
+          <button onClick={fetchOrders} style={{ background:T.hi,border:"none",borderRadius:8,padding:"7px 12px",fontSize:13,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>↻</button>
+          <button onClick={onSignOut} style={{ background:"none",border:"none",color:T.mu,fontSize:13,cursor:"pointer",fontFamily:"inherit" }}>Out</button>
         </div>
       </div>
-      <div style={{ display:"flex",gap:6,padding:"10px 12px",background:T.sf,borderBottom:`1px solid ${T.br}` }}>
-        {[{l:"Revenue",v:`€${revenue.toFixed(0)}`,c:T.gr,bg:"#EAFAF1"},{l:"New",v:myOrders.filter(o=>o.status==="new").length,c:T.ac,bg:"#FDEDEC"},{l:"Active",v:myOrders.filter(o=>o.status!=="delivered").length,c:T.bl,bg:"#EBF5FB"},{l:"Total",v:myOrders.length,c:T.mu,bg:T.hi}].map(k=>(
-          <div key={k.l} style={{ flex:1,background:k.bg,borderRadius:8,padding:"6px 10px" }}>
-            <div style={{ fontSize:16,fontWeight:900,color:k.c }}>{k.v}</div>
-            <div style={{ fontSize:9,fontWeight:800,color:k.c,textTransform:"uppercase",letterSpacing:"0.05em" }}>{k.l}</div>
+
+      {/* KPIs */}
+      <div style={{ display:"flex",gap:8,padding:"12px 14px",background:T.sf,borderBottom:`1px solid ${T.br}`,flexShrink:0 }}>
+        {[
+          {l:"Revenue",v:`€${revenue.toFixed(0)}`,c:T.gr,bg:"#EAFAF1"},
+          {l:"New",v:newCount,c:T.ac,bg:"#FDEDEC"},
+          {l:"Active",v:myOrders.filter(o=>o.status!=="delivered").length,c:T.bl,bg:"#EBF5FB"},
+          {l:"Total",v:myOrders.length,c:T.mu,bg:T.hi}
+        ].map(k=>(
+          <div key={k.l} style={{ flex:1,background:k.bg,borderRadius:10,padding:"8px 10px" }}>
+            <div style={{ fontSize:20,fontWeight:900,color:k.c }}>{k.v}</div>
+            <div style={{ fontSize:10,fontWeight:800,color:k.c,textTransform:"uppercase",letterSpacing:"0.05em" }}>{k.l}</div>
           </div>
         ))}
       </div>
-      <div style={{ flex:1,display:"flex",overflow:"hidden" }}>
-        <div style={{ width:"44%",borderRight:`1px solid ${T.br}`,overflowY:"auto" }}>
-          {myOrders.length===0&&<div style={{ padding:20,textAlign:"center",color:T.mu,fontSize:11 }}>No orders yet.<br/>Waiting...</div>}
-          {myOrders.map(o=>{
-            const isNew=o.status==="new",isSel=sel===o.id;
-            return(
-              <div key={o.id} onClick={()=>setSel(o.id)} style={{ padding:"10px 12px",borderBottom:`1px solid ${T.br}`,cursor:"pointer",background:isSel?T.ac+"0F":"transparent",borderLeft:`3px solid ${isSel?T.ac:isNew?T.ac+"66":"transparent"}` }}>
-                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3 }}>
-                  <span style={{ fontWeight:900,fontSize:12 }}>#{o.id?.slice(0,6)}</span>
-                  <Badge status={o.status}/>
-                </div>
-                <div style={{ fontSize:11,color:T.mu,marginBottom:3 }}>{o.customer_name}</div>
-                <div style={{ display:"flex",justifyContent:"space-between",fontSize:11 }}>
-                  <span style={{ color:T.mu }}>{o.items?.length||0} items</span>
-                  <span style={{ fontWeight:700 }}>€{o.total?.toFixed(2)}</span>
-                </div>
-                {NEXT[o.status]&&<button onClick={e=>{e.stopPropagation();advance(o);}} disabled={updating===o.id} style={{ width:"100%",marginTop:6,padding:"5px 0",background:isNew?T.ac:"#333",color:"#fff",border:"none",borderRadius:6,fontSize:10,fontWeight:800,cursor:"pointer",fontFamily:"inherit",opacity:updating===o.id?0.6:1 }}>
-                  {updating===o.id?"...":BTN[o.status]} →
-                </button>}
+
+      {/* Tabs */}
+      <div style={{ display:"flex",background:T.sf,borderBottom:`1px solid ${T.br}`,flexShrink:0 }}>
+        {[
+          {k:"orders",l:"Orders",b:newCount},
+          {k:"menu",l:"Menu editor"},
+        ].map(t=>(
+          <button key={t.k} onClick={()=>setTab(t.k)} style={{ flex:1,padding:"12px 0",border:"none",background:"none",borderBottom:`3px solid ${tab===t.k?T.ac:"transparent"}`,color:tab===t.k?T.ac:T.mu,fontWeight:800,fontSize:14,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:6 }}>
+            {t.l}
+            {t.b>0&&<span style={{ background:T.ac,color:"#fff",borderRadius:20,padding:"1px 7px",fontSize:11,fontWeight:900 }}>{t.b}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* ORDERS TAB */}
+      {tab==="orders"&&(
+        <div style={{ flex:1,overflow:"hidden",display:"flex" }}>
+          {/* Order list */}
+          <div style={{ width:"48%",borderRight:`1px solid ${T.br}`,overflowY:"auto" }}>
+            {myOrders.length===0&&(
+              <div style={{ padding:24,textAlign:"center",color:T.mu }}>
+                <div style={{ fontSize:40,marginBottom:8 }}>📋</div>
+                <div style={{ fontWeight:700,fontSize:14 }}>No orders yet</div>
+                <div style={{ fontSize:12,marginTop:4 }}>Orders appear here in real time</div>
               </div>
-            );
-          })}
+            )}
+            {myOrders.map(o=>{
+              const isNew=o.status==="new",isSel=sel===o.id;
+              return(
+                <div key={o.id} onClick={()=>setSel(o.id)} style={{ padding:"12px 14px",borderBottom:`1px solid ${T.br}`,cursor:"pointer",background:isSel?T.ac+"0F":"transparent",borderLeft:`4px solid ${isSel?T.ac:isNew?T.ac+"88":"transparent"}` }}>
+                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4 }}>
+                    <span style={{ fontWeight:900,fontSize:13 }}>#{o.id?.slice(0,6)}</span>
+                    <Badge status={o.status}/>
+                  </div>
+                  <div style={{ fontSize:12,color:T.mu,marginBottom:3 }}>{o.customer_name}</div>
+                  <div style={{ display:"flex",justifyContent:"space-between",fontSize:12 }}>
+                    <span style={{ color:T.mu }}>{o.items?.length||0} items</span>
+                    <span style={{ fontWeight:700,color:T.tx }}>€{o.total?.toFixed(2)}</span>
+                  </div>
+                  {NEXT[o.status]&&(
+                    <button onClick={e=>{e.stopPropagation();advance(o);}} disabled={updating===o.id}
+                      style={{ width:"100%",marginTop:8,padding:"8px 0",background:isNew?T.ac:"#2C3E50",color:"#fff",border:"none",borderRadius:8,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",opacity:updating===o.id?0.6:1 }}>
+                      {updating===o.id?"Updating...":BTN[o.status]} →
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Order detail */}
+          <div style={{ flex:1,overflowY:"auto" }}>
+            {!selected?(
+              <div style={{ height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:T.mu,gap:10,padding:20 }}>
+                <div style={{ fontSize:44 }}>📋</div>
+                <div style={{ fontWeight:700,fontSize:15 }}>Select an order</div>
+                <div style={{ fontSize:13,textAlign:"center",maxWidth:160 }}>Tap an order on the left to see details</div>
+              </div>
+            ):(
+              <div style={{ padding:"16px 14px" }}>
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14 }}>
+                  <div>
+                    <div style={{ fontWeight:900,fontSize:16 }}>#{selected.id?.slice(0,8)}</div>
+                    <div style={{ fontSize:12,color:T.mu,marginTop:2 }}>{selected.customer_name}</div>
+                    <div style={{ fontSize:12,color:T.mu }}>{selected.customer_address}</div>
+                  </div>
+                  <Badge status={selected.status} large/>
+                </div>
+                {selected.courier_lat&&selected.courier_lng&&(
+                  <div style={{ borderRadius:12,overflow:"hidden",marginBottom:12 }}>
+                    <LiveMap restLat={user.profile?.lat||60.1575} restLng={user.profile?.lng||24.8855} custLat={selected.customer_lat} custLng={selected.customer_lng} courLat={selected.courier_lat} courLng={selected.courier_lng} height={160} zoom={13}/>
+                    <div style={{ background:T.hi,padding:"8px 12px",fontSize:12,fontWeight:700,color:T.mu }}>🛵 {selected.courier_name||"Courier"} — live location</div>
+                  </div>
+                )}
+                <div style={{ background:T.hi,borderRadius:10,padding:"12px 14px",marginBottom:12 }}>
+                  <div style={{ fontSize:11,fontWeight:800,color:T.mu,textTransform:"uppercase",marginBottom:8 }}>Items</div>
+                  {selected.items?.map((item,i)=>(
+                    <div key={i} style={{ display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:6 }}>
+                      <span style={{ color:T.mu }}>{item.qty}× {item.name}</span>
+                      <span style={{ fontWeight:700 }}>€{(item.price*item.qty).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <div style={{ borderTop:`1px solid ${T.br}`,paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between",fontWeight:900,fontSize:14 }}>
+                    <span>Total</span><span style={{ color:T.ac }}>€{selected.total?.toFixed(2)}</span>
+                  </div>
+                </div>
+                {NEXT[selected.status]&&(
+                  <button onClick={()=>advance(selected)} disabled={updating===selected.id}
+                    style={{ width:"100%",padding:"14px 0",background:T.ac,color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:900,cursor:"pointer",fontFamily:"inherit" }}>
+                    {updating===selected.id?"Updating...":BTN[selected.status]} →
+                  </button>
+                )}
+                {selected.status==="delivered"&&<div style={{ textAlign:"center",padding:12,background:"#EAFAF1",borderRadius:10,color:T.gr,fontWeight:800,fontSize:13 }}>✅ Delivered</div>}
+              </div>
+            )}
+          </div>
         </div>
-        <div style={{ flex:1,overflowY:"auto" }}>
-          {!selected?(
-            <div style={{ height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:T.mu,gap:8,padding:20 }}>
-              <div style={{ fontSize:36 }}>📋</div>
-              <div style={{ fontWeight:700,fontSize:13 }}>Select an order</div>
+      )}
+
+      {/* MENU EDITOR TAB */}
+      {tab==="menu"&&(
+        <div style={{ flex:1,overflowY:"auto",padding:"14px 14px 100px" }}>
+          {/* Add new item button */}
+          {!addingItem&&(
+            <button onClick={()=>setAddingItem(true)} style={{ width:"100%",padding:"13px 0",background:T.ac,color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:800,cursor:"pointer",fontFamily:"inherit",marginBottom:16 }}>
+              + Add new dish
+            </button>
+          )}
+
+          {/* Add item form */}
+          {addingItem&&(
+            <div style={{ background:T.sf,borderRadius:14,padding:"16px 14px",marginBottom:16,border:`2px solid ${T.ac}` }}>
+              <div style={{ fontWeight:800,fontSize:15,marginBottom:12 }}>New dish</div>
+              <div style={{ display:"grid",gridTemplateColumns:"2fr 1fr",gap:"0 10px" }}>
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:11,fontWeight:700,color:T.mu,marginBottom:4 }}>NAME *</div>
+                  <input value={newItem.name} onChange={e=>setNewItem(p=>({...p,name:e.target.value}))} placeholder="e.g. Salmon Soup"
+                    style={{ width:"100%",padding:"10px 12px",borderRadius:9,fontSize:14,border:`1.5px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none" }}/>
+                </div>
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:11,fontWeight:700,color:T.mu,marginBottom:4 }}>PRICE (€) *</div>
+                  <input value={newItem.price} onChange={e=>setNewItem(p=>({...p,price:e.target.value}))} placeholder="14.50" type="number"
+                    style={{ width:"100%",padding:"10px 12px",borderRadius:9,fontSize:14,border:`1.5px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none" }}/>
+                </div>
+              </div>
+              <div style={{ marginBottom:10 }}>
+                <div style={{ fontSize:11,fontWeight:700,color:T.mu,marginBottom:4 }}>DESCRIPTION</div>
+                <input value={newItem.description} onChange={e=>setNewItem(p=>({...p,description:e.target.value}))} placeholder="Short description for customers"
+                  style={{ width:"100%",padding:"10px 12px",borderRadius:9,fontSize:14,border:`1.5px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none" }}/>
+              </div>
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:11,fontWeight:700,color:T.mu,marginBottom:4 }}>CATEGORY</div>
+                <select value={newItem.category} onChange={e=>setNewItem(p=>({...p,category:e.target.value}))}
+                  style={{ width:"100%",padding:"10px 12px",borderRadius:9,fontSize:14,border:`1.5px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none" }}>
+                  {CATEGORIES.map(c=><option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div style={{ display:"flex",gap:8 }}>
+                <button onClick={saveNewItem} disabled={menuLoading}
+                  style={{ flex:1,padding:"12px 0",background:T.gr,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>
+                  {menuLoading?"Saving...":"Save dish ✓"}
+                </button>
+                <button onClick={()=>setAddingItem(false)}
+                  style={{ flex:0.4,padding:"12px 0",background:T.hi,color:T.mu,border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
+                  Cancel
+                </button>
+              </div>
             </div>
-          ):(
-            <div style={{ padding:"14px" }}>
-              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12 }}>
-                <div><div style={{ fontWeight:900,fontSize:15 }}>#{selected.id?.slice(0,8)}</div><div style={{ fontSize:11,color:T.mu,marginTop:2 }}>{selected.customer_name}</div></div>
-                <Badge status={selected.status} large/>
-              </div>
-              {selected.courier_lat&&selected.courier_lng&&(
-                <div style={{ borderRadius:12,overflow:"hidden",marginBottom:12 }}>
-                  <LiveMap restLat={user.profile?.lat||60.1575} restLng={user.profile?.lng||24.8855} custLat={selected.customer_lat} custLng={selected.customer_lng} courLat={selected.courier_lat} courLng={selected.courier_lng} height={150} zoom={13}/>
-                  <div style={{ background:T.hi,padding:"6px 12px",fontSize:10,fontWeight:700,color:T.mu }}>🛵 {selected.courier_name||"Courier"} — live</div>
+          )}
+
+          {/* Menu items by category */}
+          {menuLoading&&!menuItems.length&&<div style={{ textAlign:"center",padding:30,color:T.mu }}>Loading menu...</div>}
+          {[...new Set(menuItems.map(i=>i.category))].map(cat=>(
+            <div key={cat} style={{ marginBottom:20 }}>
+              <div style={{ fontSize:12,fontWeight:800,color:T.mu,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10 }}>{cat}</div>
+              {menuItems.filter(i=>i.category===cat).map(item=>(
+                <div key={item.id}>
+                  {editItem?.id===item.id?(
+                    // Edit form
+                    <div style={{ background:T.sf,borderRadius:12,padding:"14px 14px",marginBottom:10,border:`2px solid ${T.bl}` }}>
+                      <div style={{ display:"grid",gridTemplateColumns:"2fr 1fr",gap:"0 10px",marginBottom:8 }}>
+                        <input value={editItem.name} onChange={e=>setEditItem(p=>({...p,name:e.target.value}))}
+                          style={{ padding:"9px 11px",borderRadius:8,fontSize:14,border:`1.5px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none" }}/>
+                        <input value={editItem.price} onChange={e=>setEditItem(p=>({...p,price:e.target.value}))} type="number"
+                          style={{ padding:"9px 11px",borderRadius:8,fontSize:14,border:`1.5px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none" }}/>
+                      </div>
+                      <input value={editItem.description||""} onChange={e=>setEditItem(p=>({...p,description:e.target.value}))} placeholder="Description"
+                        style={{ width:"100%",padding:"9px 11px",borderRadius:8,fontSize:13,border:`1.5px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none",marginBottom:10 }}/>
+                      <select value={editItem.category} onChange={e=>setEditItem(p=>({...p,category:e.target.value}))}
+                        style={{ width:"100%",padding:"9px 11px",borderRadius:8,fontSize:13,border:`1.5px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none",marginBottom:10 }}>
+                        {CATEGORIES.map(c=><option key={c}>{c}</option>)}
+                      </select>
+                      <div style={{ display:"flex",gap:8 }}>
+                        <button onClick={saveEdit} style={{ flex:1,padding:"10px 0",background:T.bl,color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>Save changes</button>
+                        <button onClick={()=>setEditItem(null)} style={{ flex:0.4,padding:"10px 0",background:T.hi,color:T.mu,border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>Cancel</button>
+                      </div>
+                    </div>
+                  ):(
+                    // Item row
+                    <div style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:8,border:`1px solid ${T.br}`,display:"flex",alignItems:"center",gap:10,opacity:item.is_available?1:0.5 }}>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontWeight:700,fontSize:14 }}>{item.name}</div>
+                        {item.description&&<div style={{ fontSize:12,color:T.mu,marginTop:2 }}>{item.description}</div>}
+                        <div style={{ fontWeight:800,fontSize:14,color:T.ac,marginTop:4 }}>€{item.price?.toFixed(2)}</div>
+                      </div>
+                      <div style={{ display:"flex",gap:6,alignItems:"center" }}>
+                        {/* Available toggle */}
+                        <div onClick={()=>toggleAvailability(item)} style={{ width:44,height:24,borderRadius:12,background:item.is_available?T.gr:T.br,position:"relative",cursor:"pointer",transition:"background 0.2s",flexShrink:0 }}>
+                          <div style={{ position:"absolute",top:2,left:item.is_available?22:2,width:20,height:20,borderRadius:"50%",background:"white",transition:"left 0.2s" }}/>
+                        </div>
+                        {/* Edit button */}
+                        <button onClick={()=>setEditItem({...item})} style={{ background:T.hi,border:"none",borderRadius:8,padding:"7px 10px",fontSize:13,cursor:"pointer",fontFamily:"inherit",color:T.mu }}>✏️</button>
+                        {/* Delete button */}
+                        <button onClick={()=>deleteItem(item.id)} style={{ background:"#EF444415",border:"none",borderRadius:8,padding:"7px 10px",fontSize:13,cursor:"pointer",fontFamily:"inherit",color:"#EF4444" }}>🗑</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-              <div style={{ background:T.hi,borderRadius:10,padding:"10px 12px",marginBottom:10 }}>
-                {selected.items?.map((item,i)=>(<div key={i} style={{ display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:5 }}><span style={{ color:T.mu }}>{item.qty}× {item.name}</span><span style={{ fontWeight:700 }}>€{(item.price*item.qty).toFixed(2)}</span></div>))}
-                <div style={{ borderTop:`1px solid ${T.br}`,paddingTop:7,marginTop:3,display:"flex",justifyContent:"space-between",fontWeight:900,fontSize:13 }}>
-                  <span>Total</span><span style={{ color:T.ac }}>€{selected.total?.toFixed(2)}</span>
-                </div>
-              </div>
-              {NEXT[selected.status]&&<button onClick={()=>advance(selected)} disabled={updating===selected.id} style={{ width:"100%",padding:"12px 0",background:T.ac,color:"#fff",border:"none",borderRadius:10,fontSize:13,fontWeight:900,cursor:"pointer",fontFamily:"inherit" }}>{updating===selected.id?"Updating...":BTN[selected.status]} →</button>}
-              {selected.status==="delivered"&&<div style={{ textAlign:"center",padding:10,background:"#EAFAF1",borderRadius:10,color:T.gr,fontWeight:800,fontSize:12 }}>✅ Completed</div>}
+              ))}
+            </div>
+          ))}
+          {menuItems.length===0&&!menuLoading&&(
+            <div style={{ textAlign:"center",padding:30,color:T.mu }}>
+              <div style={{ fontSize:40,marginBottom:8 }}>🍽</div>
+              <div style={{ fontWeight:700,fontSize:15 }}>No menu items yet</div>
+              <div style={{ fontSize:13,marginTop:4 }}>Tap "Add new dish" to get started</div>
             </div>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -1414,47 +1638,35 @@ export default function App() {
     return () => clearInterval(iv);
   },[user?.userId]);
 
- const handleAuth = async ({ token, userId, email, role }) => {
-  setLoading(true);
-  
-  // If no userId, signup may have failed - try to get it from token
-  let uid = userId;
-  if (!uid && token) {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      uid = payload.sub;
-    } catch(e) {}
-  }
-  
-  if (!uid) {
+  const handleAuth = async ({ token, userId, email, role }) => {
+    setLoading(true);
+    // Check if user already has a profile
+    let detectedRole = role;
+    let profile = null;
+
+    // Check each table for existing profile
+    if (!detectedRole) {
+      const customer = await dbAuth("customers","GET",null,`?user_id=eq.${userId}&select=*`,token);
+      if (customer?.[0]) { detectedRole = "customer"; profile = customer[0]; }
+    }
+    if (!detectedRole) {
+      const restaurant = await dbAuth("restaurants","GET",null,`?owner_id=eq.${userId}&select=*`,token);
+      if (restaurant?.[0]) { detectedRole = "restaurant"; profile = restaurant[0]; }
+    }
+    if (!detectedRole) {
+      const courier = await dbAuth("couriers","GET",null,`?user_id=eq.${userId}&select=*`,token);
+      if (courier?.[0]) { detectedRole = "courier"; profile = courier[0]; }
+    }
+    if (!detectedRole) {
+      const admin = await dbAuth("admin_users","GET",null,`?user_id=eq.${userId}&select=*`,token);
+      if (admin?.[0]) { detectedRole = "admin"; profile = admin[0]; }
+    }
+
+    const session = { token, userId, email, role: detectedRole, profile };
+    setUser(session);
+    localStorage.setItem("norush_session", JSON.stringify(session));
     setLoading(false);
-    return;
-  }
-
-  let detectedRole = role;
-  let profile = null;
-
-  const customer = await dbAuth("customers","GET",null,`?user_id=eq.${uid}&select=*`,token);
-  if (customer?.[0]) { detectedRole = "customer"; profile = customer[0]; }
-  
-  if (!detectedRole) {
-    const restaurant = await dbAuth("restaurants","GET",null,`?owner_id=eq.${uid}&select=*`,token);
-    if (restaurant?.[0]) { detectedRole = "restaurant"; profile = restaurant[0]; }
-  }
-  if (!detectedRole) {
-    const courier = await dbAuth("couriers","GET",null,`?user_id=eq.${uid}&select=*`,token);
-    if (courier?.[0]) { detectedRole = "courier"; profile = courier[0]; }
-  }
-  if (!detectedRole) {
-    const admin = await dbAuth("admin_users","GET",null,`?user_id=eq.${uid}&select=*`,token);
-    if (admin?.[0]) { detectedRole = "admin"; profile = admin[0]; }
-  }
-
-  const session = { token, userId: uid, email, role: detectedRole, profile };
-  setUser(session);
-  localStorage.setItem("norush_session", JSON.stringify(session));
-  setLoading(false);
-};
+  };
 
   const handleSignOut = async () => {
     if (user?.token) await signOut(user.token);
