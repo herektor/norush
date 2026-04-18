@@ -783,7 +783,9 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
   const [menuItems, setMenuItems] = useState([]);
   const [cart, setCart] = useState([]);
   const [rest, setRest] = useState(null);
-  const [myOrderId, setMyOrderId] = useState(null);
+  const [myOrderId, setMyOrderId] = useState(
+  localStorage.getItem("norush_active_order") || null
+);
   const [loading, setLoading] = useState(false);
   const T = D;
   const profile = user.profile;
@@ -825,6 +827,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
     if(result?.[0]){
   const newOrder = result[0];
   setMyOrderId(newOrder.id);
+  localStorage.setItem("norush_active_order", newOrder.id);
   await fetchOrders();
   setCart([]);
   setScr("track");
