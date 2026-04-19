@@ -874,7 +874,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
 
   useEffect(()=>{
     db("restaurants","GET",null,"?is_approved=eq.true&select=*").then(d=>{ if(d) setRestaurants(d); });
-    // Restore active order from localStorage
+    db("promo_slides","GET",null,"?is_active=eq.true&select=*&order=sort_order.asc").then(d=>{ if(d&&d.length>0) setPromos(d.map(s=>({title:s.title,sub:s.subtitle,icon:s.icon,bg:s.bg_color}))); });
     const saved = localStorage.getItem("norush_active_order");
     if(saved) setMyOrderId(saved);
   },[]);
@@ -947,24 +947,26 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
   ];
   const [catFilter, setCatFilter] = useState(null);
   const [promoIdx, setPromoIdx] = useState(0);
+  const [promos, setPromos] = useState(null);
   const PROMOS = [
     { bg:"linear-gradient(135deg,#FF3B2F,#FF6535)", title:"Lower fees.", sub:"We charge 15% — Wolt charges 30%.", icon:"💸" },
     { bg:"linear-gradient(135deg,#00C896,#00A070)", title:"Local first.", sub:"Supporting Lauttasaari restaurants.", icon:"📍" },
     { bg:"linear-gradient(135deg,#3B82F6,#6366F1)", title:"Fast delivery.", sub:"Couriers based in your neighborhood.", icon:"🛵" },
   ];
   const filteredRests = catFilter ? restaurants.filter(r=>r.cuisine?.toLowerCase().includes(catFilter.toLowerCase())) : restaurants;
+  const activePromos = promos || PROMOS;
 
   if(scr==="home") return(
     <div style={{ background:T.bg, minHeight:"100vh", color:T.tx, fontFamily:"inherit", overflowX:"hidden" }}>
 
       {/* TOP BAR */}
-      <div style={{ padding:"20px 20px 12px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+      <div style={{ padding:"20px 20px 14px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
         <div>
           <div style={{ display:"flex",alignItems:"center",gap:5,marginBottom:6 }}>
             <span style={{ fontSize:14 }}>📍</span>
             <span style={{ fontSize:14,color:T.mu,fontWeight:600 }}>{profile?.address?.split(",")[0]||"Lauttasaari, Helsinki"}</span>
           </div>
-          <div style={{ fontSize:30,fontWeight:900,letterSpacing:"-0.8px",lineHeight:1.1 }}>
+          <div style={{ fontSize:32,fontWeight:900,letterSpacing:"-0.8px",lineHeight:1.1 }}>
             Ready to order,<br/><span style={{ color:T.ac }}>{profile?.full_name?.split(" ")[0]||"there"}?</span>
           </div>
         </div>
@@ -986,7 +988,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
       )}
 
       {/* CATEGORY FILTERS */}
-      <div style={{ display:"flex",gap:10,padding:"4px 20px 16px",overflowX:"auto",scrollbarWidth:"none",msOverflowStyle:"none" }}>
+      <div style={{ display:"flex",gap:10,padding:"4px 20px 18px",overflowX:"auto",scrollbarWidth:"none",msOverflowStyle:"none" }}>
         {CATS.map(c=>(
           <div key={c.l} onClick={()=>setCatFilter(catFilter===c.l?null:c.l)} style={{
             display:"flex",alignItems:"center",gap:7,padding:"11px 18px",
@@ -996,32 +998,32 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
             color:catFilter===c.l?"#fff":T.tx,
             fontSize:15,fontWeight:700,transition:"all 0.15s",
           }}>
-            <span style={{ fontSize:18 }}>{c.e}</span>
-            <span>{c.l}</span>
+            <span style={{ fontSize:18 }}>{c.e}</span><span>{c.l}</span>
           </div>
         ))}
       </div>
 
-      {/* PROMO CAROUSEL — big like Wolt */}
-      <div style={{ margin:"0 20px 24px",position:"relative" }}>
+      {/* PROMO CAROUSEL — tall and bold */}
+      <div style={{ margin:"0 20px 26px",position:"relative" }}>
         <div
-          onClick={()=>setPromoIdx((promoIdx+1)%PROMOS.length)}
-          style={{ background:PROMOS[promoIdx].bg,borderRadius:24,overflow:"hidden",position:"relative",height:200,cursor:"pointer" }}>
-          <div style={{ position:"absolute",right:-15,top:-15,fontSize:160,opacity:0.12,transform:"rotate(-10deg)",lineHeight:1 }}>{PROMOS[promoIdx].icon}</div>
-          <div style={{ position:"absolute",inset:0,padding:"28px 24px",display:"flex",flexDirection:"column",justifyContent:"flex-end" }}>
-            <div style={{ fontSize:11,fontWeight:900,textTransform:"uppercase",letterSpacing:"0.14em",color:"rgba(255,255,255,0.65)",marginBottom:8 }}>Lauttasaari Pilot</div>
-            <div style={{ fontSize:30,fontWeight:900,color:"#fff",lineHeight:1.1,marginBottom:8 }}>{PROMOS[promoIdx].title}</div>
-            <div style={{ fontSize:15,color:"rgba(255,255,255,0.9)",lineHeight:1.4 }}>{PROMOS[promoIdx].sub}</div>
+          onClick={()=>setPromoIdx((promoIdx+1)%activePromos.length)}
+          style={{ background:activePromos[promoIdx%activePromos.length].bg,borderRadius:24,overflow:"hidden",position:"relative",
+            height:Math.round(window.innerHeight*0.32),minHeight:220,maxHeight:300,cursor:"pointer" }}>
+          <div style={{ position:"absolute",right:-20,bottom:-20,fontSize:200,opacity:0.1,lineHeight:1 }}>{activePromos[promoIdx%activePromos.length].icon}</div>
+          <div style={{ position:"absolute",inset:0,padding:"30px 26px",display:"flex",flexDirection:"column",justifyContent:"flex-end" }}>
+            <div style={{ fontSize:11,fontWeight:900,textTransform:"uppercase",letterSpacing:"0.14em",color:"rgba(255,255,255,0.6)",marginBottom:10 }}>Lauttasaari Pilot</div>
+            <div style={{ fontSize:34,fontWeight:900,color:"#fff",lineHeight:1.1,marginBottom:10 }}>{activePromos[promoIdx%activePromos.length].title}</div>
+            <div style={{ fontSize:16,color:"rgba(255,255,255,0.88)",lineHeight:1.45 }}>{activePromos[promoIdx%activePromos.length].sub}</div>
           </div>
         </div>
         <div style={{ display:"flex",justifyContent:"center",gap:7,marginTop:14 }}>
-          {PROMOS.map((_,i)=>(
+          {activePromos.map((_,i)=>(
             <div key={i} onClick={()=>setPromoIdx(i)} style={{ width:i===promoIdx?28:7,height:7,borderRadius:4,background:i===promoIdx?T.ac:T.br,cursor:"pointer",transition:"all 0.3s" }}/>
           ))}
         </div>
       </div>
 
-      {/* RESTAURANTS */}
+      {/* RESTAURANTS — 2-column grid */}
       <div style={{ padding:"0 20px 100px" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18 }}>
           <div style={{ fontSize:20,fontWeight:900 }}>
@@ -1045,44 +1047,39 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
           </div>
         )}
 
-        {filteredRests.map(r=>(
-          <div key={r.id} onClick={()=>loadMenu(r)}
-            style={{ background:T.sf,borderRadius:22,overflow:"hidden",marginBottom:22,cursor:"pointer",
-              border:`1px solid ${T.br}`,boxShadow:"0 6px 24px rgba(0,0,0,0.35)" }}>
-            {/* Big cover image */}
-            <div style={{ height:210,background:`linear-gradient(135deg,#1a0a0a,#2d1515)`,position:"relative",overflow:"hidden" }}>
-              {r.logo_url
-                ? <img src={r.logo_url} style={{ width:"100%",height:"100%",objectFit:"cover" }} alt={r.name}/>
-                : <div style={{ width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center" }}>
-                    <div style={{ fontSize:90,opacity:0.12 }}>🍽</div>
+        {/* 2-column grid */}
+        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
+          {filteredRests.map(r=>(
+            <div key={r.id} onClick={()=>loadMenu(r)}
+              style={{ background:T.sf,borderRadius:18,overflow:"hidden",cursor:"pointer",
+                border:`1px solid ${T.br}`,boxShadow:"0 4px 16px rgba(0,0,0,0.3)" }}>
+              {/* Cover photo */}
+              <div style={{ height:130,background:`linear-gradient(135deg,#1a0a0a,#2d1515)`,position:"relative",overflow:"hidden" }}>
+                {r.logo_url
+                  ? <img src={r.logo_url} style={{ width:"100%",height:"100%",objectFit:"cover" }} alt={r.name}/>
+                  : <div style={{ width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center" }}>
+                      <div style={{ fontSize:56,opacity:0.12 }}>🍽</div>
+                    </div>
+                }
+                <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.85) 0%,transparent 60%)" }}/>
+                <div style={{ position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.7)",borderRadius:16,padding:"3px 8px",fontSize:11,fontWeight:800,color:"#fff" }}>
+                  🛵 €{fee.toFixed(2)}
+                </div>
+              </div>
+              {/* Info */}
+              <div style={{ padding:"10px 12px 12px" }}>
+                <div style={{ fontWeight:900,fontSize:14,lineHeight:1.2,marginBottom:3 }}>{r.name}</div>
+                <div style={{ fontSize:12,color:T.mu,marginBottom:6 }}>{r.cuisine}</div>
+                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                  <div style={{ fontSize:11,color:T.mu }}>⏱ 20-35 min</div>
+                  <div style={{ fontSize:11,color:T.gr,fontWeight:800,display:"flex",alignItems:"center",gap:3 }}>
+                    <span style={{ width:6,height:6,borderRadius:"50%",background:T.gr,display:"inline-block" }}/>Open
                   </div>
-              }
-              <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.9) 0%,rgba(0,0,0,0.05) 55%,transparent 100%)" }}/>
-              <div style={{ position:"absolute",bottom:0,left:0,right:0,padding:"20px 18px 14px" }}>
-                <div style={{ fontWeight:900,fontSize:22,color:"#fff",letterSpacing:"-0.3px",lineHeight:1.1 }}>{r.name}</div>
-                <div style={{ fontSize:14,color:"rgba(255,255,255,0.7)",marginTop:4 }}>{r.cuisine}</div>
-              </div>
-              <div style={{ position:"absolute",top:16,right:16,background:"rgba(0,0,0,0.7)",backdropFilter:"blur(10px)",borderRadius:24,padding:"6px 14px",fontSize:13,fontWeight:800,color:"#fff",display:"flex",alignItems:"center",gap:5 }}>
-                🛵 €{fee.toFixed(2)}
-              </div>
-            </div>
-            {/* Info row */}
-            <div style={{ padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-              <div style={{ display:"flex",gap:18 }}>
-                <div style={{ display:"flex",alignItems:"center",gap:6,fontSize:14,color:T.mu }}>
-                  <span>⏱</span><span>20-35 min</span>
-                </div>
-                <div style={{ display:"flex",alignItems:"center",gap:6,fontSize:14,color:T.mu }}>
-                  <span>📍</span><span>{r.address?.split(",")[0]}</span>
                 </div>
               </div>
-              <div style={{ display:"flex",alignItems:"center",gap:6,fontSize:13,color:T.gr,fontWeight:800 }}>
-                <span style={{ width:8,height:8,borderRadius:"50%",background:T.gr,display:"inline-block",animation:"blink 2s infinite" }}/>
-                Open
-              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1826,11 +1823,39 @@ function CourierApp({ user, onSignOut, orders, fetchOrders }) {
 function AdminApp({ user, onSignOut, orders, fetchOrders }) {
   const [tab, setTab] = useState("orders");
   const [pending, setPending] = useState({ restaurants:[], couriers:[] });
+  const [slides, setSlides] = useState([]);
+  const [editSlide, setEditSlide] = useState(null);
+  const [newSlide, setNewSlide] = useState({ title:"", subtitle:"", icon:"🛵", bg_color:"linear-gradient(135deg,#FF3B2F,#FF6535)", sort_order:0, is_active:true });
+  const [addingSlide, setAddingSlide] = useState(false);
   const T = N;
 
   useEffect(()=>{
     loadPending();
+    loadSlides();
   },[]);
+
+  const loadSlides = async () => {
+    const data = await dbAuth("promo_slides","GET",null,"?select=*&order=sort_order.asc",user.token);
+    if(data) setSlides(data);
+  };
+
+  const saveSlide = async (slide) => {
+    if(slide.id) {
+      await dbAuth("promo_slides","PATCH",{ title:slide.title, subtitle:slide.subtitle, icon:slide.icon, bg_color:slide.bg_color, sort_order:slide.sort_order, is_active:slide.is_active },`?id=eq.${slide.id}`,user.token);
+    } else {
+      await dbAuth("promo_slides","POST",{ title:slide.title, subtitle:slide.subtitle, icon:slide.icon, bg_color:slide.bg_color, sort_order:parseInt(slide.sort_order)||0, is_active:true },"",user.token);
+    }
+    await loadSlides();
+    setEditSlide(null);
+    setAddingSlide(false);
+    setNewSlide({ title:"", subtitle:"", icon:"🛵", bg_color:"linear-gradient(135deg,#FF3B2F,#FF6535)", sort_order:0, is_active:true });
+  };
+
+  const deleteSlide = async (id) => {
+    if(!confirm("Delete this slide?")) return;
+    await dbAuth("promo_slides","DELETE",null,`?id=eq.${id}`,user.token);
+    loadSlides();
+  };
 
   const loadPending = async () => {
     const r = await dbAuth("restaurants","GET",null,"?is_approved=eq.false&select=*",user.token);
@@ -1933,6 +1958,7 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
           {k:"map",l:"🗺 Map"},
           {k:"approvals",l:`Approvals${pendingCount>0?` (${pendingCount})`:""}`},
           {k:"finance",l:"Finance"},
+          {k:"content",l:"📢 Content"},
         ].map(t=>(
           <button key={t.k} onClick={()=>setTab(t.k)} style={{ flex:1,padding:"11px 8px",border:"none",background:"none",borderBottom:`2px solid ${tab===t.k?T.ac:"transparent"}`,color:tab===t.k?T.ac:T.mu,fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",minWidth:70 }}>{t.l}</button>
         ))}
@@ -2135,6 +2161,95 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
                 Food delivery in Finland is subject to 14% VAT on your commission revenue. Estimated VAT owed: <strong style={{ color:T.yw }}>€{vatOwed.toFixed(2)}</strong>. Consult a Finnish accountant for accurate tax filing. Register for VAT once revenue exceeds €15,000/year.
               </div>
             </div>
+          </>
+        )}
+
+        {/* CONTENT TAB */}
+        {tab==="content"&&(
+          <>
+            <div style={{ fontSize:12,color:T.mu,marginBottom:16,lineHeight:1.6 }}>
+              Edit the promotional carousel that customers see on the home screen. Changes appear immediately.
+            </div>
+
+            {/* Add new slide */}
+            {!addingSlide&&(
+              <button onClick={()=>setAddingSlide(true)} style={{ width:"100%",padding:"13px 0",background:T.ac,color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:800,cursor:"pointer",fontFamily:"inherit",marginBottom:16 }}>
+                + Add new slide
+              </button>
+            )}
+
+            {addingSlide&&(
+              <div style={{ background:T.sf,borderRadius:14,padding:"16px",marginBottom:16,border:`2px solid ${T.ac}` }}>
+                <div style={{ fontWeight:800,fontSize:15,marginBottom:12 }}>New slide</div>
+                {[
+                  {l:"Title *",k:"title",ph:"Lower fees."},
+                  {l:"Subtitle *",k:"subtitle",ph:"We charge 15% — Wolt charges 30%."},
+                  {l:"Icon (emoji)",k:"icon",ph:"🛵"},
+                  {l:"Background (CSS gradient or color)",k:"bg_color",ph:"linear-gradient(135deg,#FF3B2F,#FF6535)"},
+                  {l:"Sort order (0 = first)",k:"sort_order",ph:"0"},
+                ].map(f=>(
+                  <div key={f.k} style={{ marginBottom:10 }}>
+                    <div style={{ fontSize:11,fontWeight:700,color:T.mu,marginBottom:4,textTransform:"uppercase" }}>{f.l}</div>
+                    <input value={newSlide[f.k]} onChange={e=>setNewSlide(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph}
+                      style={{ width:"100%",padding:"9px 12px",borderRadius:8,fontSize:13,border:`1px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none" }}/>
+                  </div>
+                ))}
+                {/* Preview */}
+                <div style={{ background:newSlide.bg_color,borderRadius:12,padding:"16px",marginBottom:12,position:"relative",overflow:"hidden",minHeight:80 }}>
+                  <div style={{ position:"absolute",right:8,bottom:8,fontSize:60,opacity:0.15 }}>{newSlide.icon}</div>
+                  <div style={{ fontSize:18,fontWeight:900,color:"#fff" }}>{newSlide.title||"Title"}</div>
+                  <div style={{ fontSize:12,color:"rgba(255,255,255,0.8)",marginTop:4 }}>{newSlide.subtitle||"Subtitle"}</div>
+                </div>
+                <div style={{ display:"flex",gap:8 }}>
+                  <button onClick={()=>saveSlide(newSlide)} style={{ flex:1,padding:"11px 0",background:T.gr,color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>Save slide ✓</button>
+                  <button onClick={()=>setAddingSlide(false)} style={{ flex:0.4,padding:"11px 0",background:T.hi,color:T.mu,border:"none",borderRadius:9,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {slides.length===0&&!addingSlide&&(
+              <div style={{ background:T.sf,borderRadius:12,padding:24,textAlign:"center",color:T.mu,fontSize:13 }}>
+                No slides yet. The app uses default slides.<br/>Add a slide to override them.
+              </div>
+            )}
+
+            {slides.map(slide=>(
+              <div key={slide.id} style={{ background:T.sf,borderRadius:14,overflow:"hidden",marginBottom:12,border:`1px solid ${T.br}` }}>
+                {/* Preview */}
+                <div style={{ background:slide.bg_color,padding:"16px",position:"relative",overflow:"hidden",minHeight:80 }}>
+                  <div style={{ position:"absolute",right:8,bottom:8,fontSize:60,opacity:0.15 }}>{slide.icon}</div>
+                  <div style={{ fontSize:18,fontWeight:900,color:"#fff" }}>{slide.title}</div>
+                  <div style={{ fontSize:12,color:"rgba(255,255,255,0.8)",marginTop:4 }}>{slide.subtitle}</div>
+                  {!slide.is_active&&<div style={{ position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.5)",borderRadius:6,padding:"2px 8px",fontSize:10,color:"#fff",fontWeight:700 }}>HIDDEN</div>}
+                </div>
+                {editSlide?.id===slide.id?(
+                  <div style={{ padding:"14px" }}>
+                    {[
+                      {l:"Title",k:"title"},{l:"Subtitle",k:"subtitle"},
+                      {l:"Icon",k:"icon"},{l:"Background",k:"bg_color"},
+                    ].map(f=>(
+                      <div key={f.k} style={{ marginBottom:8 }}>
+                        <div style={{ fontSize:10,fontWeight:700,color:T.mu,marginBottom:3,textTransform:"uppercase" }}>{f.l}</div>
+                        <input value={editSlide[f.k]} onChange={e=>setEditSlide(p=>({...p,[f.k]:e.target.value}))}
+                          style={{ width:"100%",padding:"8px 10px",borderRadius:7,fontSize:13,border:`1px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none" }}/>
+                      </div>
+                    ))}
+                    <div style={{ display:"flex",gap:8,marginTop:10 }}>
+                      <button onClick={()=>saveSlide(editSlide)} style={{ flex:1,padding:"10px 0",background:T.gr,color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>Save</button>
+                      <button onClick={()=>setEditSlide(null)} style={{ flex:0.4,padding:"10px 0",background:T.hi,color:T.mu,border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>Cancel</button>
+                    </div>
+                  </div>
+                ):(
+                  <div style={{ padding:"10px 14px",display:"flex",gap:8 }}>
+                    <button onClick={()=>setEditSlide({...slide})} style={{ flex:1,padding:"8px 0",background:T.hi,color:T.tx,border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>✏️ Edit</button>
+                    <button onClick={()=>saveSlide({...slide,is_active:!slide.is_active})} style={{ flex:1,padding:"8px 0",background:T.hi,color:slide.is_active?T.yw:T.gr,border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>
+                      {slide.is_active?"🙈 Hide":"👁 Show"}
+                    </button>
+                    <button onClick={()=>deleteSlide(slide.id)} style={{ flex:0.4,padding:"8px 0",background:"#EF444418",color:"#EF4444",border:"none",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>🗑</button>
+                  </div>
+                )}
+              </div>
+            ))}
           </>
         )}
       </div>
