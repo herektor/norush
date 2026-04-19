@@ -1885,7 +1885,7 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
 
   const saveSlide = async (slide) => {
     if(slide.id) {
-      await dbAuth("promo_slides","PATCH",{ title:slide.title, subtitle:slide.subtitle, icon:slide.icon, bg_color:slide.bg_color, sort_order:slide.sort_order, is_active:slide.is_active },`?id=eq.${slide.id}`,user.token);
+      await dbAuth("promo_slides","PATCH",{ title:slide.title, subtitle:slide.subtitle, icon:slide.icon, bg_color:slide.bg_color, sort_order:slide.sort_order, is_active:slide.is_active, image_url:slide.image_url||null },`?id=eq.${slide.id}`,user.token);
     } else {
       await dbAuth("promo_slides","POST",{ title:slide.title, subtitle:slide.subtitle, icon:slide.icon, bg_color:slide.bg_color, sort_order:parseInt(slide.sort_order)||0, is_active:true, image_url:slide.image_url||null },"",user.token);
     }
@@ -2238,18 +2238,29 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
                       style={{ width:"100%",padding:"9px 12px",borderRadius:8,fontSize:13,border:`1px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none" }}/>
                   </div>
                 ))}
-                {/* Image upload for slide */}
+                {/* Image upload for new slide */}
                 <div style={{ marginBottom:12 }}>
                   <div style={{ fontSize:11,fontWeight:700,color:T.mu,marginBottom:6,textTransform:"uppercase" }}>Background image (optional)</div>
-                  <div style={{ display:"flex",gap:10,alignItems:"center" }}>
-                    <ImageUploadBtn label="Add image" currentUrl={newSlide.image_url||null}
-                      onUpload={async(f)=>{
+                  <label style={{ cursor:"pointer",display:"block" }}>
+                    <div style={{ background:T.hi,border:`1.5px dashed ${T.br}`,borderRadius:10,padding:"12px 14px",display:"flex",alignItems:"center",gap:12 }}>
+                      {newSlide.image_url
+                        ? <img src={newSlide.image_url} style={{ width:56,height:56,borderRadius:8,objectFit:"cover",flexShrink:0 }} alt=""/>
+                        : <div style={{ width:56,height:56,borderRadius:8,background:T.br,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0 }}>📷</div>
+                      }
+                      <div style={{ fontSize:13,color:T.mu }}>
+                        {newSlide.image_url ? "Tap to replace photo" : "Tap to upload background photo"}
+                      </div>
+                    </div>
+                    <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display:"none" }}
+                      onChange={async e=>{
+                        const file=e.target.files[0]; if(!file) return;
                         const path=`slides/${Date.now()}.jpg`;
-                        const url=await uploadImage(f,"norush-images",path,user.token);
+                        const url=await uploadImage(file,"norush-images",path,user.token);
                         if(url) setNewSlide(p=>({...p,image_url:url}));
-                      }} size={70} token={user.token}/>
-                    <div style={{ fontSize:12,color:T.mu,lineHeight:1.5 }}>Upload a photo to use as<br/>background for this slide</div>
-                  </div>
+                        e.target.value="";
+                      }}
+                    />
+                  </label>
                 </div>
                 {/* Preview */}
                 <div style={{ background:newSlide.bg_color,borderRadius:12,padding:"16px",marginBottom:12,position:"relative",overflow:"hidden",minHeight:80 }}>
@@ -2287,10 +2298,34 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
                     ].map(f=>(
                       <div key={f.k} style={{ marginBottom:8 }}>
                         <div style={{ fontSize:10,fontWeight:700,color:T.mu,marginBottom:3,textTransform:"uppercase" }}>{f.l}</div>
-                        <input value={editSlide[f.k]} onChange={e=>setEditSlide(p=>({...p,[f.k]:e.target.value}))}
+                        <input value={editSlide[f.k]||""} onChange={e=>setEditSlide(p=>({...p,[f.k]:e.target.value}))}
                           style={{ width:"100%",padding:"8px 10px",borderRadius:7,fontSize:13,border:`1px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none" }}/>
                       </div>
                     ))}
+                    {/* Image upload in edit form */}
+                    <div style={{ marginBottom:10 }}>
+                      <div style={{ fontSize:10,fontWeight:700,color:T.mu,marginBottom:6,textTransform:"uppercase" }}>Background image</div>
+                      <label style={{ cursor:"pointer",display:"block" }}>
+                        <div style={{ background:T.hi,border:`1.5px dashed ${T.br}`,borderRadius:10,padding:"12px 14px",display:"flex",alignItems:"center",gap:12 }}>
+                          {editSlide.image_url
+                            ? <img src={editSlide.image_url} style={{ width:56,height:56,borderRadius:8,objectFit:"cover",flexShrink:0 }} alt=""/>
+                            : <div style={{ width:56,height:56,borderRadius:8,background:T.br,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0 }}>📷</div>
+                          }
+                          <div style={{ fontSize:13,color:T.mu,lineHeight:1.5 }}>
+                            {editSlide.image_url ? "Tap to replace photo" : "Tap to upload background photo"}
+                          </div>
+                        </div>
+                        <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display:"none" }}
+                          onChange={async e=>{
+                            const file=e.target.files[0]; if(!file) return;
+                            const path=`slides/${editSlide.id||Date.now()}.jpg`;
+                            const url=await uploadImage(file,"norush-images",path,user.token);
+                            if(url) setEditSlide(p=>({...p,image_url:url}));
+                            e.target.value="";
+                          }}
+                        />
+                      </label>
+                    </div>
                     <div style={{ display:"flex",gap:8,marginTop:10 }}>
                       <button onClick={()=>saveSlide(editSlide)} style={{ flex:1,padding:"10px 0",background:T.gr,color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>Save</button>
                       <button onClick={()=>setEditSlide(null)} style={{ flex:0.4,padding:"10px 0",background:T.hi,color:T.mu,border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>Cancel</button>
