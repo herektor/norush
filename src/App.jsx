@@ -2263,10 +2263,12 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
                   </label>
                 </div>
                 {/* Preview */}
-                <div style={{ background:newSlide.bg_color,borderRadius:12,padding:"16px",marginBottom:12,position:"relative",overflow:"hidden",minHeight:80 }}>
-                  <div style={{ position:"absolute",right:8,bottom:8,fontSize:60,opacity:0.15 }}>{newSlide.icon}</div>
-                  <div style={{ fontSize:18,fontWeight:900,color:"#fff" }}>{newSlide.title||"Title"}</div>
-                  <div style={{ fontSize:12,color:"rgba(255,255,255,0.8)",marginTop:4 }}>{newSlide.subtitle||"Subtitle"}</div>
+                <div style={{ background:newSlide.bg_color||"#333",borderRadius:12,padding:"16px",marginBottom:12,position:"relative",overflow:"hidden",minHeight:100 }}>
+                  {newSlide.image_url&&<img src={newSlide.image_url} style={{ position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",borderRadius:12 }} alt=""/>}
+                  <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.7) 0%,transparent 100%)",borderRadius:12 }}/>
+                  {!newSlide.image_url&&<div style={{ position:"absolute",right:8,bottom:8,fontSize:60,opacity:0.15 }}>{newSlide.icon}</div>}
+                  <div style={{ position:"relative",fontSize:18,fontWeight:900,color:"#fff",marginTop:40 }}>{newSlide.title||"Title"}</div>
+                  <div style={{ position:"relative",fontSize:12,color:"rgba(255,255,255,0.8)",marginTop:4 }}>{newSlide.subtitle||"Subtitle"}</div>
                 </div>
                 <div style={{ display:"flex",gap:8 }}>
                   <button onClick={()=>saveSlide(newSlide)} style={{ flex:1,padding:"11px 0",background:T.gr,color:"#fff",border:"none",borderRadius:9,fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>Save slide ✓</button>
@@ -2284,11 +2286,13 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
             {slides.map(slide=>(
               <div key={slide.id} style={{ background:T.sf,borderRadius:14,overflow:"hidden",marginBottom:12,border:`1px solid ${T.br}` }}>
                 {/* Preview */}
-                <div style={{ background:slide.bg_color,padding:"16px",position:"relative",overflow:"hidden",minHeight:80 }}>
-                  <div style={{ position:"absolute",right:8,bottom:8,fontSize:60,opacity:0.15 }}>{slide.icon}</div>
-                  <div style={{ fontSize:18,fontWeight:900,color:"#fff" }}>{slide.title}</div>
-                  <div style={{ fontSize:12,color:"rgba(255,255,255,0.8)",marginTop:4 }}>{slide.subtitle}</div>
-                  {!slide.is_active&&<div style={{ position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.5)",borderRadius:6,padding:"2px 8px",fontSize:10,color:"#fff",fontWeight:700 }}>HIDDEN</div>}
+                <div style={{ background:slide.bg_color||"#333",padding:"16px",position:"relative",overflow:"hidden",minHeight:100 }}>
+                  {slide.image_url&&<img src={slide.image_url} style={{ position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover" }} alt=""/>}
+                  <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.7) 0%,transparent 100%)" }}/>
+                  {!slide.image_url&&<div style={{ position:"absolute",right:8,bottom:8,fontSize:60,opacity:0.15 }}>{slide.icon}</div>}
+                  <div style={{ position:"relative",fontSize:18,fontWeight:900,color:"#fff",marginTop:40 }}>{slide.title}</div>
+                  <div style={{ position:"relative",fontSize:12,color:"rgba(255,255,255,0.8)",marginTop:4 }}>{slide.subtitle}</div>
+                  {!slide.is_active&&<div style={{ position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.6)",borderRadius:6,padding:"2px 8px",fontSize:10,color:"#fff",fontWeight:700 }}>HIDDEN</div>}
                 </div>
                 {editSlide?.id===slide.id?(
                   <div style={{ padding:"14px" }}>
