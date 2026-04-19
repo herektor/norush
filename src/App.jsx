@@ -1433,9 +1433,6 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
   return null;
 }
 
-  return null;
-}
-
 /* ═══════════════════════════════════════════════════════════════════
    RESTAURANT APP — with orders + menu editor tabs
 ═══════════════════════════════════════════════════════════════════ */
