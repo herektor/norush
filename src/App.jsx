@@ -954,7 +954,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
     { bg:"linear-gradient(135deg,#3B82F6,#6366F1)", title:"Fast delivery.", sub:"Couriers based in your neighborhood.", icon:"🛵" },
   ];
   const filteredRests = catFilter ? restaurants.filter(r=>r.cuisine?.toLowerCase().includes(catFilter.toLowerCase())) : restaurants;
-  const activePromos = (promos || PROMOS).map(p=>({...p, image_url: p.image_url||null, sub: p.sub||p.subtitle||"" }));
+  const activePromos = (promos || PROMOS).map(p=>({ ...p, bg: p.bg||p.bg_color||"linear-gradient(135deg,#FF3B2F,#FF6535)", sub: p.sub||p.subtitle||"", image_url: p.image_url||null }));
 
   if(scr==="home") return(
     <div style={{ background:T.bg, minHeight:"100vh", color:T.tx, fontFamily:"inherit", overflowX:"hidden" }}>
