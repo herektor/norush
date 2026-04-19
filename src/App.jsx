@@ -874,7 +874,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
 
   useEffect(()=>{
     db("restaurants","GET",null,"?is_approved=eq.true&select=*").then(d=>{ if(d) setRestaurants(d); });
-    db("promo_slides","GET",null,"?is_active=eq.true&select=*&order=sort_order.asc").then(d=>{ if(d&&d.length>0) setPromos(d.map(s=>({title:s.title,sub:s.subtitle,icon:s.icon,bg:s.bg_color}))); });
+    db("promo_slides","GET",null,"?is_active=eq.true&select=*&order=sort_order.asc").then(d=>{ if(d&&d.length>0) setPromos(d.map(s=>({title:s.title,sub:s.subtitle,icon:s.icon,bg:s.bg_color,image_url:s.image_url||null}))); });
     const saved = localStorage.getItem("norush_active_order");
     if(saved) setMyOrderId(saved);
   },[]);
