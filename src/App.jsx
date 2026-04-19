@@ -958,131 +958,126 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
     <div style={{ background:T.bg, minHeight:"100vh", color:T.tx, fontFamily:"inherit", overflowX:"hidden" }}>
 
       {/* TOP BAR */}
-      <div style={{ padding:"16px 16px 8px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+      <div style={{ padding:"20px 20px 12px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
         <div>
-          <div style={{ display:"flex",alignItems:"center",gap:5,marginBottom:4 }}>
-            <span style={{ fontSize:13 }}>📍</span>
-            <span style={{ fontSize:13,color:T.mu,fontWeight:600 }}>{profile?.address?.split(",")[0]||"Lauttasaari, Helsinki"}</span>
+          <div style={{ display:"flex",alignItems:"center",gap:5,marginBottom:6 }}>
+            <span style={{ fontSize:14 }}>📍</span>
+            <span style={{ fontSize:14,color:T.mu,fontWeight:600 }}>{profile?.address?.split(",")[0]||"Lauttasaari, Helsinki"}</span>
           </div>
-          <div style={{ fontSize:26,fontWeight:900,letterSpacing:"-0.5px",lineHeight:1.1 }}>
+          <div style={{ fontSize:30,fontWeight:900,letterSpacing:"-0.8px",lineHeight:1.1 }}>
             Ready to order,<br/><span style={{ color:T.ac }}>{profile?.full_name?.split(" ")[0]||"there"}?</span>
           </div>
         </div>
-        <div style={{ display:"flex",gap:8,alignItems:"center",paddingTop:4 }}>
-          <button onClick={()=>setScr("history")} style={{ background:T.hi,border:`1px solid ${T.br}`,color:T.mu,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:"7px 14px",borderRadius:20 }}>Orders</button>
+        <div style={{ display:"flex",gap:8,alignItems:"center",paddingTop:6 }}>
+          <button onClick={()=>setScr("history")} style={{ background:T.hi,border:`1px solid ${T.br}`,color:T.mu,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:"8px 16px",borderRadius:22 }}>Orders</button>
           <button onClick={onSignOut} style={{ background:"none",border:"none",color:T.mu,fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>Out</button>
         </div>
       </div>
 
       {/* ACTIVE ORDER BANNER */}
       {myOrder && !["delivered"].includes(myOrder.status) && (
-        <div onClick={()=>setScr("track")} style={{ margin:"8px 16px",background:`linear-gradient(135deg,${T.ac},#FF6535)`,borderRadius:16,padding:"14px 16px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+        <div onClick={()=>setScr("track")} style={{ margin:"0 20px 16px",background:`linear-gradient(135deg,${T.ac},#FF6535)`,borderRadius:18,padding:"16px 18px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
           <div>
-            <div style={{ fontWeight:900,fontSize:14,color:"#fff" }}>Order in progress 🛵</div>
-            <div style={{ fontSize:12,color:"rgba(255,255,255,0.8)",marginTop:3 }}>{STATUS_META[myOrder.status]?.label} · Tap to track</div>
+            <div style={{ fontWeight:900,fontSize:16,color:"#fff" }}>Order in progress 🛵</div>
+            <div style={{ fontSize:13,color:"rgba(255,255,255,0.85)",marginTop:4 }}>{STATUS_META[myOrder.status]?.label} · Tap to track</div>
           </div>
-          <div style={{ fontSize:24,color:"#fff" }}>→</div>
+          <div style={{ fontSize:28,color:"#fff" }}>→</div>
         </div>
       )}
 
       {/* CATEGORY FILTERS */}
-      <div style={{ display:"flex",gap:8,padding:"14px 16px 4px",overflowX:"auto",scrollbarWidth:"none",msOverflowStyle:"none" }}>
+      <div style={{ display:"flex",gap:10,padding:"4px 20px 16px",overflowX:"auto",scrollbarWidth:"none",msOverflowStyle:"none" }}>
         {CATS.map(c=>(
           <div key={c.l} onClick={()=>setCatFilter(catFilter===c.l?null:c.l)} style={{
-            display:"flex",alignItems:"center",gap:6,padding:"10px 16px",
-            borderRadius:24,flexShrink:0,cursor:"pointer",
+            display:"flex",alignItems:"center",gap:7,padding:"11px 18px",
+            borderRadius:26,flexShrink:0,cursor:"pointer",
             background:catFilter===c.l?T.ac:T.sf,
             border:`1.5px solid ${catFilter===c.l?T.ac:T.br}`,
             color:catFilter===c.l?"#fff":T.tx,
-            fontSize:14,fontWeight:700,transition:"all 0.15s",
+            fontSize:15,fontWeight:700,transition:"all 0.15s",
           }}>
-            <span style={{ fontSize:16 }}>{c.e}</span>
+            <span style={{ fontSize:18 }}>{c.e}</span>
             <span>{c.l}</span>
           </div>
         ))}
       </div>
 
-      {/* PROMO CAROUSEL */}
-      <div style={{ margin:"16px 16px 8px",position:"relative" }}>
+      {/* PROMO CAROUSEL — big like Wolt */}
+      <div style={{ margin:"0 20px 24px",position:"relative" }}>
         <div
           onClick={()=>setPromoIdx((promoIdx+1)%PROMOS.length)}
-          style={{ background:PROMOS[promoIdx].bg,borderRadius:20,overflow:"hidden",position:"relative",height:160,cursor:"pointer" }}>
-          {/* Background pattern */}
-          <div style={{ position:"absolute",right:-20,top:-20,fontSize:130,opacity:0.15,transform:"rotate(-15deg)" }}>{PROMOS[promoIdx].icon}</div>
-          <div style={{ position:"absolute",inset:0,padding:"22px 20px",display:"flex",flexDirection:"column",justifyContent:"flex-end" }}>
-            <div style={{ fontSize:10,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.12em",color:"rgba(255,255,255,0.7)",marginBottom:6 }}>Lauttasaari Pilot</div>
-            <div style={{ fontSize:26,fontWeight:900,color:"#fff",lineHeight:1.15,marginBottom:6 }}>{PROMOS[promoIdx].title}</div>
-            <div style={{ fontSize:13,color:"rgba(255,255,255,0.85)" }}>{PROMOS[promoIdx].sub}</div>
+          style={{ background:PROMOS[promoIdx].bg,borderRadius:24,overflow:"hidden",position:"relative",height:200,cursor:"pointer" }}>
+          <div style={{ position:"absolute",right:-15,top:-15,fontSize:160,opacity:0.12,transform:"rotate(-10deg)",lineHeight:1 }}>{PROMOS[promoIdx].icon}</div>
+          <div style={{ position:"absolute",inset:0,padding:"28px 24px",display:"flex",flexDirection:"column",justifyContent:"flex-end" }}>
+            <div style={{ fontSize:11,fontWeight:900,textTransform:"uppercase",letterSpacing:"0.14em",color:"rgba(255,255,255,0.65)",marginBottom:8 }}>Lauttasaari Pilot</div>
+            <div style={{ fontSize:30,fontWeight:900,color:"#fff",lineHeight:1.1,marginBottom:8 }}>{PROMOS[promoIdx].title}</div>
+            <div style={{ fontSize:15,color:"rgba(255,255,255,0.9)",lineHeight:1.4 }}>{PROMOS[promoIdx].sub}</div>
           </div>
         </div>
-        {/* Dots */}
-        <div style={{ display:"flex",justifyContent:"center",gap:6,marginTop:12 }}>
+        <div style={{ display:"flex",justifyContent:"center",gap:7,marginTop:14 }}>
           {PROMOS.map((_,i)=>(
-            <div key={i} onClick={()=>setPromoIdx(i)} style={{ width:i===promoIdx?24:6,height:6,borderRadius:3,background:i===promoIdx?T.ac:T.br,cursor:"pointer",transition:"all 0.3s" }}/>
+            <div key={i} onClick={()=>setPromoIdx(i)} style={{ width:i===promoIdx?28:7,height:7,borderRadius:4,background:i===promoIdx?T.ac:T.br,cursor:"pointer",transition:"all 0.3s" }}/>
           ))}
         </div>
       </div>
 
       {/* RESTAURANTS */}
-      <div style={{ padding:"16px 16px 80px" }}>
-        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16 }}>
-          <div style={{ fontSize:18,fontWeight:900 }}>
+      <div style={{ padding:"0 20px 100px" }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18 }}>
+          <div style={{ fontSize:20,fontWeight:900 }}>
             {catFilter ? `${catFilter} nearby` : "Restaurants nearby"}
           </div>
-          {catFilter&&<button onClick={()=>setCatFilter(null)} style={{ background:"none",border:"none",color:T.ac,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>See all</button>}
+          {catFilter&&<button onClick={()=>setCatFilter(null)} style={{ background:"none",border:"none",color:T.ac,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>See all</button>}
         </div>
 
         {restaurants.length===0&&(
-          <div style={{ textAlign:"center",padding:40,color:T.mu }}>
-            <div style={{ fontSize:40,marginBottom:10 }}>🍽</div>
-            <div style={{ fontWeight:700,fontSize:15 }}>Loading restaurants...</div>
+          <div style={{ textAlign:"center",padding:50,color:T.mu }}>
+            <div style={{ fontSize:48,marginBottom:12 }}>🍽</div>
+            <div style={{ fontWeight:700,fontSize:16 }}>Loading restaurants...</div>
           </div>
         )}
 
         {filteredRests.length===0&&restaurants.length>0&&(
-          <div style={{ textAlign:"center",padding:30,color:T.mu }}>
-            <div style={{ fontSize:32,marginBottom:8 }}>🔍</div>
-            <div style={{ fontWeight:700,fontSize:14 }}>No {catFilter} restaurants yet</div>
-            <button onClick={()=>setCatFilter(null)} style={{ marginTop:12,background:T.hi,border:"none",borderRadius:8,padding:"8px 16px",fontSize:12,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>Show all</button>
+          <div style={{ textAlign:"center",padding:40,color:T.mu }}>
+            <div style={{ fontSize:40,marginBottom:10 }}>🔍</div>
+            <div style={{ fontWeight:700,fontSize:15 }}>No {catFilter} restaurants yet</div>
+            <button onClick={()=>setCatFilter(null)} style={{ marginTop:14,background:T.hi,border:"none",borderRadius:10,padding:"10px 20px",fontSize:13,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>Show all</button>
           </div>
         )}
 
         {filteredRests.map(r=>(
           <div key={r.id} onClick={()=>loadMenu(r)}
-            style={{ background:T.sf,borderRadius:20,overflow:"hidden",marginBottom:18,cursor:"pointer",border:`1px solid ${T.br}`,
-              boxShadow:"0 4px 20px rgba(0,0,0,0.3)" }}>
-            {/* Cover image — tall and bold */}
-            <div style={{ height:180,background:`linear-gradient(135deg,#1a0a0a,#2d1515)`,position:"relative",overflow:"hidden" }}>
+            style={{ background:T.sf,borderRadius:22,overflow:"hidden",marginBottom:22,cursor:"pointer",
+              border:`1px solid ${T.br}`,boxShadow:"0 6px 24px rgba(0,0,0,0.35)" }}>
+            {/* Big cover image */}
+            <div style={{ height:210,background:`linear-gradient(135deg,#1a0a0a,#2d1515)`,position:"relative",overflow:"hidden" }}>
               {r.logo_url
                 ? <img src={r.logo_url} style={{ width:"100%",height:"100%",objectFit:"cover" }} alt={r.name}/>
                 : <div style={{ width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center" }}>
-                    <div style={{ fontSize:72,opacity:0.15 }}>🍽</div>
+                    <div style={{ fontSize:90,opacity:0.12 }}>🍽</div>
                   </div>
               }
-              {/* Dark gradient so text is readable */}
-              <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.85) 0%,rgba(0,0,0,0.1) 60%,transparent 100%)" }}/>
-              {/* Restaurant name on photo */}
-              <div style={{ position:"absolute",bottom:0,left:0,right:0,padding:"16px 16px 12px" }}>
-                <div style={{ fontWeight:900,fontSize:20,color:"#fff",letterSpacing:"-0.3px" }}>{r.name}</div>
-                <div style={{ fontSize:13,color:"rgba(255,255,255,0.75)",marginTop:3 }}>{r.cuisine}</div>
+              <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.9) 0%,rgba(0,0,0,0.05) 55%,transparent 100%)" }}/>
+              <div style={{ position:"absolute",bottom:0,left:0,right:0,padding:"20px 18px 14px" }}>
+                <div style={{ fontWeight:900,fontSize:22,color:"#fff",letterSpacing:"-0.3px",lineHeight:1.1 }}>{r.name}</div>
+                <div style={{ fontSize:14,color:"rgba(255,255,255,0.7)",marginTop:4 }}>{r.cuisine}</div>
               </div>
-              {/* Delivery fee badge top right */}
-              <div style={{ position:"absolute",top:14,right:14,background:"rgba(0,0,0,0.65)",backdropFilter:"blur(10px)",borderRadius:22,padding:"5px 12px",fontSize:12,fontWeight:800,color:"#fff",display:"flex",alignItems:"center",gap:4 }}>
+              <div style={{ position:"absolute",top:16,right:16,background:"rgba(0,0,0,0.7)",backdropFilter:"blur(10px)",borderRadius:24,padding:"6px 14px",fontSize:13,fontWeight:800,color:"#fff",display:"flex",alignItems:"center",gap:5 }}>
                 🛵 €{fee.toFixed(2)}
               </div>
             </div>
-            {/* Info row below photo */}
-            <div style={{ padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-              <div style={{ display:"flex",gap:16 }}>
-                <div style={{ display:"flex",alignItems:"center",gap:5,fontSize:13,color:T.mu }}>
+            {/* Info row */}
+            <div style={{ padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+              <div style={{ display:"flex",gap:18 }}>
+                <div style={{ display:"flex",alignItems:"center",gap:6,fontSize:14,color:T.mu }}>
                   <span>⏱</span><span>20-35 min</span>
                 </div>
-                <div style={{ display:"flex",alignItems:"center",gap:5,fontSize:13,color:T.mu }}>
+                <div style={{ display:"flex",alignItems:"center",gap:6,fontSize:14,color:T.mu }}>
                   <span>📍</span><span>{r.address?.split(",")[0]}</span>
                 </div>
               </div>
-              <div style={{ display:"flex",alignItems:"center",gap:5,fontSize:12,color:T.gr,fontWeight:800 }}>
-                <span style={{ width:7,height:7,borderRadius:"50%",background:T.gr,display:"inline-block" }}/>
+              <div style={{ display:"flex",alignItems:"center",gap:6,fontSize:13,color:T.gr,fontWeight:800 }}>
+                <span style={{ width:8,height:8,borderRadius:"50%",background:T.gr,display:"inline-block",animation:"blink 2s infinite" }}/>
                 Open
               </div>
             </div>
