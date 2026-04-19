@@ -60,6 +60,22 @@ async function signIn(email, password) {
   return res.json();
 }
 
+async function refreshToken(refresh_token) {
+  const res = await fetch(`${SURL}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: { apikey: SKEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token }),
+  });
+  return res.json();
+}
+
+function isTokenExpired(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000 < Date.now() + 60000; // refresh 1 min before expiry
+  } catch(e) { return true; }
+}
+
 async function signOut(token) {
   await fetch(`${SURL}/auth/v1/logout`, {
     method: "POST",
@@ -315,8 +331,9 @@ function AuthScreen({ onAuth }) {
         setLoading(false); return;
       }
       const token = result.access_token;
+      const refreshTok = result.refresh_token;
       const userId = result.user?.id;
-      onAuth({ token, userId, email, role: mode === "signup" ? role : null });
+      onAuth({ token, refreshToken: refreshTok, userId, email, role: mode === "signup" ? role : null });
     } catch(e) {
       setError("Connection error — check your internet");
     }
@@ -948,6 +965,13 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
   const [catFilter, setCatFilter] = useState(null);
   const [promoIdx, setPromoIdx] = useState(0);
   const [promos, setPromos] = useState(null);
+  const [installPrompt, setInstallPrompt] = useState(null);
+
+  useEffect(()=>{
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  },[]);
   const PROMOS = [
     { bg:"linear-gradient(135deg,#FF3B2F,#FF6535)", title:"Lower fees.", sub:"We charge 15% — Wolt charges 30%.", icon:"💸" },
     { bg:"linear-gradient(135deg,#00C896,#00A070)", title:"Local first.", sub:"Supporting Lauttasaari restaurants.", icon:"📍" },
@@ -958,6 +982,19 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
 
   if(scr==="home") return(
     <div style={{ background:T.bg, minHeight:"100vh", color:T.tx, fontFamily:"inherit", overflowX:"hidden" }}>
+
+      {/* PWA INSTALL BANNER */}
+      {installPrompt&&(
+        <div style={{ background:"#1E1E2A",borderBottom:"1px solid #2A2A38",padding:"12px 22px",display:"flex",alignItems:"center",gap:12 }}>
+          <div style={{ fontSize:28 }}>🛵</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontWeight:800,fontSize:13 }}>Install NoRush</div>
+            <div style={{ fontSize:11,color:"#6A6A88",marginTop:1 }}>Add to home screen for the best experience</div>
+          </div>
+          <button onClick={()=>{ installPrompt.prompt(); setInstallPrompt(null); }} style={{ background:"#FF3B2F",color:"#fff",border:"none",borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",flexShrink:0 }}>Install</button>
+          <button onClick={()=>setInstallPrompt(null)} style={{ background:"none",border:"none",color:"#6A6A88",fontSize:18,cursor:"pointer",padding:"0 4px" }}>×</button>
+        </div>
+      )}
 
       {/* TOP BAR */}
       <div style={{ padding:"24px 22px 16px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
@@ -1171,29 +1208,74 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
   );
 
   if(scr==="checkout") return(
-    <div style={{ background:T.bg,minHeight:"100vh",color:T.tx,fontFamily:"inherit" }}>
-      <TopBar title="Checkout" back={()=>setScr("menu")}/>
-      <div style={{ padding:"14px 14px 110px" }}>
-        <div style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:10,border:`1px solid ${T.br}` }}>
-          <div style={{ fontSize:10,fontWeight:800,color:T.mu,textTransform:"uppercase",marginBottom:4 }}>Delivering to</div>
-          <div style={{ fontWeight:700,fontSize:13 }}>{profile?.full_name}</div>
-          <div style={{ fontSize:12,color:T.mu,marginTop:2 }}>{profile?.address}</div>
-        </div>
-        <div style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:10,border:`1px solid ${T.br}` }}>
-          <div style={{ fontSize:10,fontWeight:800,color:T.mu,textTransform:"uppercase",marginBottom:8 }}>Order · {rest?.name}</div>
-          {cart.map(i=><div key={i.id} style={{ display:"flex",justifyContent:"space-between",fontSize:12,color:T.mu,marginBottom:5 }}><span>{i.qty}× {i.name}</span><span style={{ color:T.tx,fontWeight:600 }}>€{(i.price*i.qty).toFixed(2)}</span></div>)}
-          <div style={{ borderTop:`1px solid ${T.br}`,paddingTop:8,marginTop:4 }}>
-            <div style={{ display:"flex",justifyContent:"space-between",fontSize:12,color:T.mu,marginBottom:4 }}><span>Delivery fee</span><span>€{fee.toFixed(2)}</span></div>
-            <div style={{ display:"flex",justifyContent:"space-between",fontWeight:900,fontSize:15 }}><span>Total</span><span style={{ color:T.ac }}>€{tot.toFixed(2)}</span></div>
+    <div style={{ background:D.bg,minHeight:"100vh",color:D.tx,fontFamily:"inherit" }}>
+      {/* Header */}
+      <div style={{ padding:"16px 22px",display:"flex",alignItems:"center",gap:12,background:D.bg,position:"sticky",top:0,zIndex:5,borderBottom:`1px solid ${D.br}` }}>
+        <button onClick={()=>setScr("menu")} style={{ background:D.hi,border:"none",color:D.tx,width:40,height:40,borderRadius:12,cursor:"pointer",fontSize:20,flexShrink:0 }}>‹</button>
+        <div style={{ fontWeight:900,fontSize:18 }}>Checkout</div>
+        <button onClick={onSignOut} style={{ marginLeft:"auto",background:"none",border:"none",color:D.mu,fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>Out</button>
+      </div>
+
+      <div style={{ padding:"20px 22px 130px" }}>
+        {/* Delivery address */}
+        <div style={{ background:D.sf,borderRadius:18,padding:"18px 20px",marginBottom:16,border:`1px solid ${D.br}` }}>
+          <div style={{ fontSize:11,fontWeight:800,color:D.mu,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:10 }}>Delivering to</div>
+          <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+            <div style={{ width:44,height:44,borderRadius:12,background:D.ac+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0 }}>📍</div>
+            <div>
+              <div style={{ fontWeight:800,fontSize:16 }}>{profile?.full_name}</div>
+              <div style={{ fontSize:14,color:D.mu,marginTop:2 }}>{profile?.address}</div>
+            </div>
           </div>
         </div>
-        <div style={{ background:T.sf,borderRadius:12,padding:"12px 14px",border:`1px solid ${T.br}` }}>
-          <div style={{ fontWeight:700,fontSize:13 }}>💳 Test mode — no real charge</div>
+
+        {/* Order summary */}
+        <div style={{ background:D.sf,borderRadius:18,padding:"18px 20px",marginBottom:16,border:`1px solid ${D.br}` }}>
+          <div style={{ fontSize:11,fontWeight:800,color:D.mu,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:14 }}>Your order · {rest?.name}</div>
+          {cart.map(i=>(
+            <div key={i.id} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,gap:10 }}>
+              <div style={{ display:"flex",alignItems:"center",gap:10,flex:1 }}>
+                {i.photo_url&&<img src={i.photo_url} style={{ width:44,height:44,borderRadius:9,objectFit:"cover",flexShrink:0 }} alt={i.name}/>}
+                <div>
+                  <div style={{ fontSize:14,fontWeight:700 }}>{i.qty}× {i.name}</div>
+                  <div style={{ fontSize:13,color:D.mu,marginTop:1 }}>€{i.price.toFixed(2)} each</div>
+                </div>
+              </div>
+              <div style={{ fontWeight:800,fontSize:15,color:D.tx,flexShrink:0 }}>€{(i.price*i.qty).toFixed(2)}</div>
+            </div>
+          ))}
+          <div style={{ borderTop:`1px solid ${D.br}`,paddingTop:14,marginTop:4 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",fontSize:14,color:D.mu,marginBottom:8 }}>
+              <span>Subtotal</span><span>€{sub.toFixed(2)}</span>
+            </div>
+            <div style={{ display:"flex",justifyContent:"space-between",fontSize:14,color:D.mu,marginBottom:10 }}>
+              <span>🛵 Delivery fee</span><span>€{fee.toFixed(2)}</span>
+            </div>
+            <div style={{ display:"flex",justifyContent:"space-between",fontWeight:900,fontSize:18 }}>
+              <span>Total</span><span style={{ color:D.ac }}>€{tot.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment */}
+        <div style={{ background:D.sf,borderRadius:18,padding:"18px 20px",border:`1px solid ${D.br}` }}>
+          <div style={{ fontSize:11,fontWeight:800,color:D.mu,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:14 }}>Payment</div>
+          <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+            <div style={{ width:44,height:44,borderRadius:12,background:"#1E40AF22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0 }}>💳</div>
+            <div>
+              <div style={{ fontWeight:700,fontSize:15 }}>Card payment</div>
+              <div style={{ fontSize:12,color:D.mu,marginTop:2 }}>Test mode — no real charge</div>
+            </div>
+            <div style={{ marginLeft:"auto",width:22,height:22,borderRadius:"50%",background:D.ac,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff" }}>✓</div>
+          </div>
         </div>
       </div>
-      <div style={{ position:"fixed",bottom:0,left:0,right:0,padding:"10px 16px 20px",background:T.bg+"F8",borderTop:`1px solid ${T.br}` }}>
-        <button onClick={placeOrder} disabled={loading} style={{ width:"100%",background:loading?T.mu:T.ac,color:"#fff",border:"none",borderRadius:12,padding:"14px 16px",fontSize:14,fontWeight:900,cursor:loading?"not-allowed":"pointer",display:"flex",justifyContent:"space-between",fontFamily:"inherit" }}>
-          <span>{loading?"Placing...":"Place order 🚀"}</span><span>€{tot.toFixed(2)}</span>
+
+      {/* Place order button */}
+      <div style={{ position:"fixed",bottom:0,left:0,right:0,padding:"16px 22px 32px",background:D.bg+"F8",borderTop:`1px solid ${D.br}` }}>
+        <button onClick={placeOrder} disabled={loading} style={{ width:"100%",background:loading?D.mu:D.ac,color:"#fff",border:"none",borderRadius:18,padding:"18px 22px",fontSize:17,fontWeight:900,cursor:loading?"not-allowed":"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",fontFamily:"inherit",opacity:loading?0.7:1 }}>
+          <span>{loading?"Placing order...":"Place order"}</span>
+          <span style={{ fontWeight:900,fontSize:18 }}>€{tot.toFixed(2)}</span>
         </button>
       </div>
     </div>
@@ -2362,14 +2444,53 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
 
-  // Check for saved session on load
+  // Check for saved session on load + auto-refresh token
   useEffect(()=>{
-    const saved = localStorage.getItem("norush_session");
-    if (saved) {
-      try { setUser(JSON.parse(saved)); } catch(e) {}
-    }
-    setLoading(false);
+    const init = async () => {
+      const saved = localStorage.getItem("norush_session");
+      if (saved) {
+        try {
+          const session = JSON.parse(saved);
+          // Check if token needs refresh
+          if (session.token && isTokenExpired(session.token) && session.refreshToken) {
+            const refreshed = await refreshToken(session.refreshToken);
+            if (refreshed.access_token) {
+              const updated = { ...session, token: refreshed.access_token, refreshToken: refreshed.refresh_token };
+              localStorage.setItem("norush_session", JSON.stringify(updated));
+              setUser(updated);
+            } else {
+              // Refresh failed — clear session, ask to login again
+              localStorage.removeItem("norush_session");
+            }
+          } else {
+            setUser(session);
+          }
+        } catch(e) { localStorage.removeItem("norush_session"); }
+      }
+      setLoading(false);
+    };
+    init();
   },[]);
+
+  // Refresh token every 50 minutes while app is open
+  useEffect(()=>{
+    if (!user?.refreshToken) return;
+    const iv = setInterval(async () => {
+      if (isTokenExpired(user.token)) {
+        const refreshed = await refreshToken(user.refreshToken);
+        if (refreshed.access_token) {
+          const updated = { ...user, token: refreshed.access_token, refreshToken: refreshed.refresh_token };
+          localStorage.setItem("norush_session", JSON.stringify(updated));
+          setUser(updated);
+        } else {
+          // Force re-login
+          localStorage.removeItem("norush_session");
+          setUser(null);
+        }
+      }
+    }, 50 * 60 * 1000); // every 50 minutes
+    return () => clearInterval(iv);
+  },[user?.token]);
 
   const fetchOrders = async () => {
     const data = await db("orders","GET",null,"?select=*&order=created_at.desc&limit=100");
@@ -2383,7 +2504,7 @@ export default function App() {
     return () => clearInterval(iv);
   },[user?.userId]);
 
-  const handleAuth = async ({ token, userId, email, role }) => {
+  const handleAuth = async ({ token, refreshToken, userId, email, role }) => {
     setLoading(true);
     // Check if user already has a profile
     let detectedRole = role;
@@ -2407,7 +2528,7 @@ export default function App() {
       if (admin?.[0]) { detectedRole = "admin"; profile = admin[0]; }
     }
 
-    const session = { token, userId, email, role: detectedRole, profile };
+    const session = { token, refreshToken, userId, email, role: detectedRole, profile };
     setUser(session);
     localStorage.setItem("norush_session", JSON.stringify(session));
     setLoading(false);
@@ -2442,6 +2563,8 @@ export default function App() {
         ::-webkit-scrollbar{width:3px;} ::-webkit-scrollbar-thumb{background:#444;border-radius:3px;}
         @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
         input,select,textarea,button{font-family:'DM Sans',sans-serif;}
+        body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+        .norush-app { padding-top: env(safe-area-inset-top); }
       `}</style>
 
       {/* NOT LOGGED IN */}
