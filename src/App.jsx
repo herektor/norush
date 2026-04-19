@@ -890,7 +890,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
   const profile = user.profile;
 
   useEffect(()=>{
-    db("restaurants","GET",null,"?is_approved=eq.true&select=*").then(d=>{ if(d) setRestaurants(d); });
+    db("restaurants","GET",null,"?is_approved=eq.true&select=*&order=name.asc").then(d=>{ if(d) setRestaurants(d); });
     db("promo_slides","GET",null,"?is_active=eq.true&select=*&order=sort_order.asc").then(d=>{ if(d&&d.length>0) setPromos(d.map(s=>({title:s.title,sub:s.subtitle,icon:s.icon,bg:s.bg_color,image_url:s.image_url||null}))); });
     const saved = localStorage.getItem("norush_active_order");
     if(saved) setMyOrderId(saved);
@@ -926,13 +926,14 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
 
   const placeOrder=async()=>{
     setLoading(true);
+    if (!profile?.id) { alert("Profile not found. Please sign out and sign in again."); setLoading(false); return; }
     const result=await dbAuth("orders","POST",{
       restaurant_id:rest.id,
-      customer_id:profile?.id||null,
-      customer_name:profile?.full_name||user.email,
-      customer_address:profile?.address||"Lauttasaari",
-      customer_lat:profile?.lat||60.1560,
-      customer_lng:profile?.lng||24.8820,
+      customer_id:profile.id,
+      customer_name:profile.full_name||user.email,
+      customer_address:profile.address||"Lauttasaari",
+      customer_lat:profile.lat||60.1560,
+      customer_lng:profile.lng||24.8820,
       items:cart.map(i=>({id:i.id,name:i.name,price:i.price,qty:i.qty})),
       subtotal:sub,delivery_fee:fee,total:tot,status:"new",pay_method:"card",
     },"",user.token);
@@ -2564,8 +2565,10 @@ export default function App() {
     return () => clearInterval(iv);
   },[user?.token]);
 
-  const fetchOrders = async () => {
-    const data = await db("orders","GET",null,"?select=*&order=created_at.desc&limit=100");
+  const fetchOrders = async (token) => {
+    const tok = token || user?.token;
+    if (!tok) return;
+    const data = await dbAuth("orders","GET",null,"?select=*&order=created_at.desc&limit=100",tok);
     if (data) setOrders(data);
   };
 
