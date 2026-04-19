@@ -939,60 +939,132 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
     </div>
   );
 
+  // Category filters
+  const CATS = [
+    {e:"🍕",l:"Pizza"},{e:"🍔",l:"Burgers"},{e:"🍣",l:"Sushi"},
+    {e:"🥗",l:"Salads"},{e:"🍜",l:"Asian"},{e:"🐟",l:"Seafood"},
+    {e:"🥩",l:"Grill"},{e:"🧆",l:"Vegan"},
+  ];
+  const [catFilter, setCatFilter] = useState(null);
+  const [promoIdx, setPromoIdx] = useState(0);
+  const PROMOS = [
+    { bg:"linear-gradient(135deg,#FF3B2F,#FF6535)", title:"Lower fees.", sub:"We charge 15% — Wolt charges 30%.", icon:"💸" },
+    { bg:"linear-gradient(135deg,#00C896,#00A070)", title:"Local first.", sub:"Supporting Lauttasaari restaurants.", icon:"📍" },
+    { bg:"linear-gradient(135deg,#3B82F6,#6366F1)", title:"Fast delivery.", sub:"Couriers based in your neighborhood.", icon:"🛵" },
+  ];
+  const filteredRests = catFilter ? restaurants.filter(r=>r.cuisine?.toLowerCase().includes(catFilter.toLowerCase())) : restaurants;
+
   if(scr==="home") return(
-    <div style={{ background:T.bg, minHeight:"100vh", color:T.tx, fontFamily:"inherit" }}>
-      <div style={{ padding:"16px 16px 0" }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:3 }}>
-          <div style={{ fontSize:10, color:T.mu }}>📍 {profile?.address?.split(",")[0]||"Lauttasaari, Helsinki"}</div>
-          <div style={{ display:"flex",gap:8,alignItems:"center" }}>
-            <button onClick={()=>setScr("history")} style={{ background:T.hi,border:"none",color:T.mu,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:"4px 10px",borderRadius:7 }}>Orders</button>
-            <button onClick={onSignOut} style={{ background:"none", border:"none", color:T.mu, fontSize:11, cursor:"pointer", fontFamily:"inherit" }}>Sign out</button>
+    <div style={{ background:T.bg, minHeight:"100vh", color:T.tx, fontFamily:"inherit", overflowX:"hidden" }}>
+
+      {/* TOP BAR */}
+      <div style={{ padding:"14px 16px 10px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        <div>
+          <div style={{ fontSize:10,color:T.mu,marginBottom:2 }}>📍 {profile?.address?.split(",")[0]||"Lauttasaari, Helsinki"}</div>
+          <div style={{ fontSize:22,fontWeight:900,letterSpacing:"-0.5px" }}>
+            Hey {profile?.full_name?.split(" ")[0]||"there"} 👋
           </div>
         </div>
-        {/* Active order banner */}
-        {myOrder && !["delivered"].includes(myOrder.status) && (
-          <div onClick={()=>setScr("track")} style={{ background:T.ac+"18",border:`1px solid ${T.ac}44`,borderRadius:12,padding:"12px 14px",marginBottom:12,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-            <div>
-              <div style={{ fontWeight:800,fontSize:13,color:T.ac }}>Active order in progress</div>
-              <div style={{ fontSize:11,color:T.mu,marginTop:2 }}>{STATUS_META[myOrder.status]?.label} · Tap to track</div>
-            </div>
-            <div style={{ fontSize:20 }}>🛵</div>
-          </div>
-        )}
-        <div style={{ fontSize:28,fontWeight:900,letterSpacing:"-0.5px",lineHeight:1.2,marginBottom:16 }}>
-          Hey {profile?.full_name?.split(" ")[0]||"there"} 👋<br/><span style={{ color:T.ac }}>What are you craving?</span>
-        </div>
-        <div style={{ background:`linear-gradient(130deg,${T.ac},#FF6535)`,borderRadius:14,padding:"14px 16px",marginBottom:18,position:"relative",overflow:"hidden" }}>
-          <div style={{ position:"absolute",right:-10,bottom:-10,fontSize:72,opacity:0.1 }}>🛵</div>
-          <div style={{ fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.1em",opacity:0.8 }}>Lauttasaari pilot</div>
-          <div style={{ fontSize:15,fontWeight:900,marginTop:3 }}>Lower fees. Faster delivery.</div>
+        <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+          <button onClick={()=>setScr("history")} style={{ background:T.hi,border:`1px solid ${T.br}`,color:T.mu,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:"7px 14px",borderRadius:20 }}>Orders</button>
+          <button onClick={onSignOut} style={{ background:"none",border:"none",color:T.mu,fontSize:11,cursor:"pointer",fontFamily:"inherit" }}>Out</button>
         </div>
       </div>
-      <div style={{ padding:"0 16px 40px" }}>
-        <div style={{ fontSize:11,fontWeight:800,color:T.mu,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:10 }}>
-          {restaurants.length===0?"Loading...":restaurants.length+" restaurant"+(restaurants.length!==1?"s":"")+" nearby"}
+
+      {/* ACTIVE ORDER BANNER */}
+      {myOrder && !["delivered"].includes(myOrder.status) && (
+        <div onClick={()=>setScr("track")} style={{ margin:"0 16px 12px",background:`linear-gradient(135deg,${T.ac},#FF6535)`,borderRadius:16,padding:"14px 16px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+          <div>
+            <div style={{ fontWeight:900,fontSize:14,color:"#fff" }}>Order in progress 🛵</div>
+            <div style={{ fontSize:12,color:"rgba(255,255,255,0.8)",marginTop:3 }}>{STATUS_META[myOrder.status]?.label} · Tap to track</div>
+          </div>
+          <div style={{ fontSize:28 }}>→</div>
         </div>
-        {restaurants.map(r=>(
-          <div key={r.id} onClick={()=>loadMenu(r)} style={{ background:T.sf,borderRadius:14,overflow:"hidden",marginBottom:10,cursor:"pointer",border:`1px solid ${T.br}`,transition:"transform 0.1s" }}
-            onMouseEnter={e=>e.currentTarget.style.transform="scale(1.01)"}
-            onMouseLeave={e=>e.currentTarget.style.transform=""}>
-            <div style={{ height:80,background:`linear-gradient(135deg,#FF3B2F33,#FF6B3511)`,display:"flex",alignItems:"center",gap:14,padding:"0 16px" }}>
+      )}
+
+      {/* CATEGORY FILTERS */}
+      <div style={{ display:"flex",gap:8,padding:"4px 16px 12px",overflowX:"auto",scrollbarWidth:"none" }}>
+        {CATS.map(c=>(
+          <div key={c.l} onClick={()=>setCatFilter(catFilter===c.l?null:c.l)} style={{
+            display:"flex",alignItems:"center",gap:6,padding:"8px 14px",
+            borderRadius:20,flexShrink:0,cursor:"pointer",
+            background:catFilter===c.l?T.ac:T.sf,
+            border:`1px solid ${catFilter===c.l?T.ac:T.br}`,
+            color:catFilter===c.l?"#fff":T.tx,
+            fontSize:13,fontWeight:700,transition:"all 0.15s",
+          }}>
+            <span>{c.e}</span><span>{c.l}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* PROMO CAROUSEL */}
+      <div style={{ margin:"0 16px 20px",position:"relative" }}>
+        <div style={{ background:PROMOS[promoIdx].bg,borderRadius:18,padding:"22px 20px",position:"relative",overflow:"hidden",minHeight:110 }}>
+          <div style={{ position:"absolute",right:16,top:"50%",transform:"translateY(-50%)",fontSize:56,opacity:0.25 }}>{PROMOS[promoIdx].icon}</div>
+          <div style={{ fontSize:9,fontWeight:800,textTransform:"uppercase",letterSpacing:"0.12em",color:"rgba(255,255,255,0.7)",marginBottom:6 }}>Lauttasaari Pilot</div>
+          <div style={{ fontSize:22,fontWeight:900,color:"#fff",lineHeight:1.2 }}>{PROMOS[promoIdx].title}</div>
+          <div style={{ fontSize:13,color:"rgba(255,255,255,0.85)",marginTop:6 }}>{PROMOS[promoIdx].sub}</div>
+        </div>
+        {/* Dots */}
+        <div style={{ display:"flex",justifyContent:"center",gap:6,marginTop:10 }}>
+          {PROMOS.map((_,i)=>(
+            <div key={i} onClick={()=>setPromoIdx(i)} style={{ width:i===promoIdx?20:6,height:6,borderRadius:3,background:i===promoIdx?T.ac:T.br,cursor:"pointer",transition:"all 0.3s" }}/>
+          ))}
+        </div>
+      </div>
+
+      {/* RESTAURANTS */}
+      <div style={{ padding:"0 16px 80px" }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14 }}>
+          <div style={{ fontSize:16,fontWeight:900 }}>
+            {catFilter ? `${catFilter} nearby` : "Restaurants nearby"}
+          </div>
+          {catFilter&&<button onClick={()=>setCatFilter(null)} style={{ background:"none",border:"none",color:T.ac,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>Clear</button>}
+        </div>
+        {filteredRests.length===0&&restaurants.length>0&&(
+          <div style={{ textAlign:"center",padding:30,color:T.mu }}>
+            <div style={{ fontSize:32,marginBottom:8 }}>🔍</div>
+            <div style={{ fontWeight:700 }}>No {catFilter} restaurants yet</div>
+            <button onClick={()=>setCatFilter(null)} style={{ marginTop:12,background:T.hi,border:"none",borderRadius:8,padding:"8px 16px",fontSize:12,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>Show all</button>
+          </div>
+        )}
+        {filteredRests.map(r=>(
+          <div key={r.id} onClick={()=>loadMenu(r)} style={{ background:T.sf,borderRadius:18,overflow:"hidden",marginBottom:16,cursor:"pointer",border:`1px solid ${T.br}` }}>
+            {/* Cover image area */}
+            <div style={{ height:160,background:`linear-gradient(135deg,#1a1a2e,#16213e)`,position:"relative",overflow:"hidden" }}>
               {r.logo_url
-                ? <img src={r.logo_url} style={{ width:44,height:44,borderRadius:10,objectFit:"cover",flexShrink:0 }} alt={r.name}/>
-                : <span style={{ fontSize:32 }}>🍽</span>
+                ? <img src={r.logo_url} style={{ width:"100%",height:"100%",objectFit:"cover",opacity:0.7 }} alt={r.name}/>
+                : <div style={{ width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:64,opacity:0.3 }}>🍽</div>
               }
-              <div style={{ flex:1 }}>
-                <div style={{ fontWeight:800,fontSize:14 }}>{r.name}</div>
-                <div style={{ color:T.mu,fontSize:11 }}>{r.cuisine} · {r.address}</div>
+              {/* Gradient overlay */}
+              <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.8) 0%,transparent 50%)" }}/>
+              {/* Info overlay */}
+              <div style={{ position:"absolute",bottom:0,left:0,right:0,padding:"12px 14px" }}>
+                <div style={{ fontWeight:900,fontSize:17,color:"#fff" }}>{r.name}</div>
+                <div style={{ fontSize:12,color:"rgba(255,255,255,0.7)",marginTop:2 }}>{r.cuisine}</div>
               </div>
-              <div style={{ textAlign:"right" }}>
-                <div style={{ fontSize:11,color:T.gr,fontWeight:700 }}>● Open</div>
-                <div style={{ fontSize:10,color:T.mu }}>🛵 €{fee.toFixed(2)}</div>
+              {/* Delivery fee badge */}
+              <div style={{ position:"absolute",top:12,right:12,background:"rgba(0,0,0,0.6)",backdropFilter:"blur(8px)",borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:"#fff" }}>
+                🛵 €{fee.toFixed(2)}
               </div>
+            </div>
+            {/* Bottom info row */}
+            <div style={{ padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+              <div style={{ display:"flex",gap:12 }}>
+                <div style={{ fontSize:12,color:T.mu }}>⏱ 20-35 min</div>
+                <div style={{ fontSize:12,color:T.mu }}>{r.address?.split(",")[0]}</div>
+              </div>
+              <div style={{ fontSize:11,color:T.gr,fontWeight:700 }}>● Open</div>
             </div>
           </div>
         ))}
-        {restaurants.length===0&&<div style={{ textAlign:"center",padding:40,color:T.mu,fontSize:12 }}>Loading restaurants...</div>}
+        {restaurants.length===0&&(
+          <div style={{ textAlign:"center",padding:40,color:T.mu }}>
+            <div style={{ fontSize:32,marginBottom:8 }}>🍽</div>
+            <div style={{ fontSize:13 }}>Loading restaurants...</div>
+          </div>
+        )}
       </div>
     </div>
   );
