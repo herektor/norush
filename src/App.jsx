@@ -981,7 +981,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
   const activePromos = (promos || PROMOS).map(p=>({ ...p, bg: p.bg||p.bg_color||"linear-gradient(135deg,#FF3B2F,#FF6535)", sub: p.sub||p.subtitle||"", image_url: p.image_url||null }));
 
   if(scr==="home") return(
-    <div style={{ background:T.bg, minHeight:"100vh", color:T.tx, fontFamily:"inherit", overflowX:"hidden" }}>
+    <div style={{ background:T.bg, minHeight:"100vh", color:T.tx, fontFamily:"inherit", overflowX:"hidden", width:"100%", maxWidth:"100vw" }}>
 
       {/* PWA INSTALL BANNER */}
       {installPrompt&&(
@@ -1025,7 +1025,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
       )}
 
       {/* CATEGORY FILTERS */}
-      <div style={{ display:"flex",gap:10,padding:"4px 22px 20px",overflowX:"auto",scrollbarWidth:"none",msOverflowStyle:"none" }}>
+      <div style={{ display:"flex",gap:10,padding:"4px 22px 20px",overflowX:"auto",scrollbarWidth:"none",msOverflowStyle:"none",WebkitOverflowScrolling:"touch" }}>
         {CATS.map(c=>(
           <div key={c.l} onClick={()=>setCatFilter(catFilter===c.l?null:c.l)} style={{
             display:"flex",alignItems:"center",gap:8,padding:"12px 20px",
@@ -1322,44 +1322,116 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
 
 
   if(scr==="track") return(
-    <div style={{ background:T.bg,minHeight:"100vh",color:T.tx,fontFamily:"inherit" }}>
-      <TopBar title="Live tracking"/>
+    <div style={{ background:D.bg,height:"100vh",display:"flex",flexDirection:"column",color:D.tx,fontFamily:"inherit",overflow:"hidden" }}>
+
+      {/* Header */}
+      <div style={{ padding:"14px 20px",display:"flex",alignItems:"center",gap:12,background:D.bg,flexShrink:0,borderBottom:`1px solid ${D.br}` }}>
+        <button onClick={()=>setScr("home")} style={{ background:D.hi,border:"none",color:D.tx,width:40,height:40,borderRadius:12,cursor:"pointer",fontSize:20,flexShrink:0 }}>‹</button>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:900,fontSize:17 }}>Live tracking</div>
+          {myOrder&&<div style={{ fontSize:12,color:D.mu,marginTop:1 }}>Order #{myOrder.id?.slice(0,8)} · €{myOrder.total?.toFixed(2)}</div>}
+        </div>
+        <button onClick={fetchOrders} style={{ background:D.hi,border:"none",color:D.mu,width:40,height:40,borderRadius:12,cursor:"pointer",fontSize:16,flexShrink:0 }}>↻</button>
+      </div>
+
       {myOrder?(
-        <>
-          <LiveMap restLat={restaurants.find(r=>r.id===myOrder?.restaurant_id)?.lat||60.1575} restLng={restaurants.find(r=>r.id===myOrder?.restaurant_id)?.lng||24.8855} custLat={myOrder?.customer_lat} custLng={myOrder?.customer_lng} courLat={myOrder?.courier_lat} courLng={myOrder?.courier_lng} height={220}/>
-          <div style={{ padding:"12px 14px" }}>
-            <div style={{ background:myOrder.status==="delivered"?T.gr+"18":T.ac+"18",border:`1px solid ${myOrder.status==="delivered"?T.gr+"44":T.ac+"44"}`,borderRadius:14,padding:"14px 16px",display:"flex",gap:14,alignItems:"center",marginBottom:12 }}>
-              <div style={{ width:40,height:40,borderRadius:11,background:myOrder.status==="delivered"?T.gr:T.ac,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0 }}>
-                {myOrder.status==="delivered"?"🎉":myOrder.status==="picked_up"?"🛵":myOrder.status==="preparing"?"👨‍🍳":"✓"}
+        <div style={{ flex:1,display:"flex",flexDirection:"column",overflow:"hidden" }}>
+
+          {/* BIG MAP — takes most of screen */}
+          <div style={{ flexShrink:0,height:"42vh" }}>
+            <LiveMap
+              restLat={restaurants.find(r=>r.id===myOrder.restaurant_id)?.lat||60.1575}
+              restLng={restaurants.find(r=>r.id===myOrder.restaurant_id)?.lng||24.8855}
+              restName={restaurants.find(r=>r.id===myOrder.restaurant_id)?.name||"Restaurant"}
+              custLat={myOrder.customer_lat} custLng={myOrder.customer_lng}
+              courLat={myOrder.courier_lat} courLng={myOrder.courier_lng}
+              height={window.innerHeight*0.42}
+            />
+          </div>
+
+          {/* Status panel — scrollable */}
+          <div style={{ flex:1,overflowY:"auto",padding:"20px 20px 30px" }}>
+
+            {/* Big status card */}
+            <div style={{ background:myOrder.status==="delivered"?D.gr+"18":D.ac+"15",border:`1.5px solid ${myOrder.status==="delivered"?D.gr+"55":D.ac+"44"}`,borderRadius:20,padding:"18px 20px",display:"flex",gap:16,alignItems:"center",marginBottom:20 }}>
+              <div style={{ width:54,height:54,borderRadius:16,background:myOrder.status==="delivered"?D.gr:D.ac,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,flexShrink:0 }}>
+                {myOrder.status==="delivered"?"🎉":myOrder.status==="picked_up"?"🛵":myOrder.status==="ready"?"📦":myOrder.status==="preparing"?"👨‍🍳":myOrder.status==="heading_to_restaurant"?"🚴":"✅"}
               </div>
-              <div>
-                <div style={{ fontWeight:800,fontSize:17 }}>{STATUS_META[myOrder.status]?.label}</div>
-                <div style={{ fontSize:11,color:T.mu,marginTop:2 }}>Order #{myOrder.id?.slice(0,8)} · €{myOrder.total?.toFixed(2)}</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:900,fontSize:19,lineHeight:1.2 }}>{STATUS_META[myOrder.status]?.label}</div>
+                {myOrder.courier_name&&myOrder.status!=="delivered"&&(
+                  <div style={{ fontSize:14,color:D.mu,marginTop:5,display:"flex",alignItems:"center",gap:6 }}>
+                    <span>🛵</span><span style={{ fontWeight:700 }}>{myOrder.courier_name}</span><span>is on the way</span>
+                  </div>
+                )}
               </div>
             </div>
-            <div style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:12,border:`1px solid ${T.br}` }}>
+
+            {/* Progress steps */}
+            <div style={{ background:D.sf,borderRadius:18,padding:"18px 20px",marginBottom:16,border:`1px solid ${D.br}` }}>
+              <div style={{ fontSize:12,fontWeight:800,color:D.mu,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:16 }}>Order progress</div>
               {SK.map((s,i)=>{
-                const done=i<SK.indexOf(myOrder.status),active=i===SK.indexOf(myOrder.status);
+                const done=i<SK.indexOf(myOrder.status);
+                const active=i===SK.indexOf(myOrder.status);
                 return(
-                  <div key={s} style={{ display:"flex",gap:10,marginBottom:i<SK.length-1?10:0 }}>
-                    <div style={{ display:"flex",flexDirection:"column",alignItems:"center" }}>
-                      <div style={{ width:22,height:22,borderRadius:"50%",background:done?T.gr:active?T.ac:T.hi,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#fff",flexShrink:0,transition:"background 0.3s" }}>{done?"✓":i+1}</div>
-                      {i<SK.length-1&&<div style={{ width:2,height:10,marginTop:2,background:done?T.gr:T.br }}/>}
+                  <div key={s} style={{ display:"flex",gap:14,marginBottom:i<SK.length-1?14:0 }}>
+                    <div style={{ display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0 }}>
+                      <div style={{ width:28,height:28,borderRadius:"50%",
+                        background:done?D.gr:active?D.ac:D.hi,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:done?14:12,color:"#fff",fontWeight:800,
+                        transition:"background 0.3s",
+                        boxShadow:active?`0 0 0 4px ${D.ac}33`:"none" }}>
+                        {done?"✓":i+1}
+                      </div>
+                      {i<SK.length-1&&<div style={{ width:2,flex:1,minHeight:14,marginTop:4,background:done?D.gr:D.br,transition:"background 0.3s" }}/>}
                     </div>
-                    <div style={{ paddingTop:1 }}><div style={{ fontSize:12,fontWeight:active?800:400,color:active?T.tx:done?T.mu:"#444" }}>{STATUS_META[s].label}</div></div>
+                    <div style={{ paddingTop:4,paddingBottom:i<SK.length-1?14:0 }}>
+                      <div style={{ fontSize:15,fontWeight:active?900:500,color:active?D.tx:done?D.gr:"#555",lineHeight:1.2 }}>
+                        {STATUS_META[s].label}
+                      </div>
+                      {active&&<div style={{ fontSize:12,color:D.mu,marginTop:3 }}>In progress...</div>}
+                      {done&&<div style={{ fontSize:12,color:D.gr,marginTop:3 }}>Done ✓</div>}
+                    </div>
                   </div>
                 );
               })}
             </div>
-            <button onClick={fetchOrders} style={{ width:"100%",background:T.hi,border:"none",borderRadius:10,padding:"10px 0",fontSize:12,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit",marginBottom:8 }}>↻ Refresh status</button>
-            {myOrder.status==="delivered"&&<Btn onClick={()=>{setMyOrderId(null);setScr("home");}} T={T}>Order again 🔄</Btn>}
+
+            {/* Order summary */}
+            <div style={{ background:D.sf,borderRadius:18,padding:"16px 20px",marginBottom:16,border:`1px solid ${D.br}` }}>
+              <div style={{ fontSize:12,fontWeight:800,color:D.mu,textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:12 }}>Order summary</div>
+              {myOrder.items?.map((item,i)=>(
+                <div key={i} style={{ display:"flex",justifyContent:"space-between",fontSize:15,marginBottom:8 }}>
+                  <span style={{ color:D.mu }}>{item.qty}× {item.name}</span>
+                  <span style={{ fontWeight:700 }}>€{(item.price*item.qty).toFixed(2)}</span>
+                </div>
+              ))}
+              <div style={{ borderTop:`1px solid ${D.br}`,paddingTop:10,marginTop:4,display:"flex",justifyContent:"space-between",fontWeight:900,fontSize:17 }}>
+                <span>Total</span><span style={{ color:D.ac }}>€{myOrder.total?.toFixed(2)}</span>
+              </div>
+            </div>
+
+            {myOrder.status==="delivered"&&(
+              <button onClick={()=>{setMyOrderId(null);localStorage.removeItem("norush_active_order");setScr("home");}}
+                style={{ width:"100%",background:D.gr,color:"#fff",border:"none",borderRadius:16,padding:"18px 0",fontSize:17,fontWeight:900,cursor:"pointer",fontFamily:"inherit" }}>
+                Order again 🔄
+              </button>
+            )}
           </div>
-        </>
+        </div>
       ):(
-        <div style={{ padding:30,textAlign:"center",color:T.mu }}>Loading order...<br/><button onClick={fetchOrders} style={{ marginTop:10,background:T.hi,border:"none",borderRadius:7,padding:"7px 14px",fontSize:11,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>↻ Refresh</button></div>
+        <div style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:D.mu,gap:12,padding:30 }}>
+          <div style={{ fontSize:48 }}>🛵</div>
+          <div style={{ fontWeight:700,fontSize:16 }}>Loading your order...</div>
+          <button onClick={fetchOrders} style={{ background:D.hi,border:"none",borderRadius:10,padding:"10px 22px",fontSize:14,fontWeight:700,cursor:"pointer",color:D.mu,fontFamily:"inherit" }}>↻ Refresh</button>
+        </div>
       )}
     </div>
   );
+  return null;
+}
+
   return null;
 }
 
