@@ -208,7 +208,7 @@ function Input({ label, ...props }) {
   return (
     <div style={{ marginBottom:14 }}>
       {label && <div style={{ fontSize:11, fontWeight:700, color:T.mu, marginBottom:5, textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>}
-      <input {...props} style={{ width:"100%", padding:"12px 14px", borderRadius:10, fontSize:14,
+      <input {...props} style={{ width:"100%", padding:"15px 16px", borderRadius:12, fontSize:16,
         border:`1.5px solid ${T.br}`, background:T.sf, color:T.tx, fontFamily:"inherit",
         outline:"none", transition:"border-color 0.15s", ...props.style }}
         onFocus={e=>e.target.style.borderColor=T.ac}
@@ -228,8 +228,8 @@ function Btn({ children, onClick, variant="primary", T=D, disabled, style={} }) 
   };
   return (
     <button onClick={onClick} disabled={disabled} style={{
-      ...styles[variant], border:"none", borderRadius:11, padding:"13px 20px",
-      fontSize:14, fontWeight:800, cursor:disabled?"not-allowed":"pointer",
+      ...styles[variant], border:"none", borderRadius:14, padding:"16px 22px",
+      fontSize:16, fontWeight:800, cursor:disabled?"not-allowed":"pointer",
       fontFamily:"inherit", transition:"opacity 0.15s", opacity:disabled?0.5:1,
       width:"100%", ...style,
     }}>{children}</button>
@@ -261,8 +261,19 @@ function LiveMap({ restLat=60.1575, restLng=24.8855, restName="Restaurant",
     s.src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
     s.onload=()=>{
       const Lf=window.L;
-      const m=Lf.map(ref.current,{zoomControl:false}).setView([restLat,restLng],zoom);
-      Lf.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(m);
+      const m=Lf.map(ref.current,{
+        zoomControl:false,
+        scrollWheelZoom:false,
+        touchZoom:true,
+        doubleClickZoom:true,
+        dragging:true,
+        tap:false,
+        bounceAtZoomLimits:false,
+      }).setView([restLat,restLng],zoom);
+      // Prevent map touch events from bubbling to page
+      ref.current.addEventListener('touchstart', e=>e.stopPropagation(), {passive:false});
+      ref.current.addEventListener('touchmove', e=>e.stopPropagation(), {passive:false});
+      Lf.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{attribution:"© OpenStreetMap © CARTO",maxZoom:19}).addTo(m);
       Lf.control.zoom({position:"bottomright"}).addTo(m);
       marks.current.rest=Lf.marker([restLat,restLng],{icon:mkIcon("🍽","#FF3B2F")}).addTo(m).bindPopup(restName);
       if(custLat&&custLng) marks.current.cust=Lf.marker([custLat,custLng],{icon:mkIcon("📍","#FF3B2F",32)}).addTo(m).bindPopup("Delivery address");
@@ -284,10 +295,27 @@ function LiveMap({ restLat=60.1575, restLng=24.8855, restName="Restaurant",
     return()=>{ if(mapRef.current){mapRef.current.remove();mapRef.current=null;} };
   },[]);
 
+  const userMovedRef = useRef(false);
+  const returnTimerRef = useRef(null);
+
   useEffect(()=>{
     if(!mapRef.current||!window.L||!courLat||!courLng) return;
     if(marks.current.cour) marks.current.cour.setLatLng([courLat,courLng]);
     else marks.current.cour=window.L.marker([courLat,courLng],{icon:mkIcon("🛵","#00C896")}).addTo(mapRef.current).bindPopup("Courier");
+    // Only auto-center if user hasn't moved the map recently
+    if(!userMovedRef.current) {
+      mapRef.current.setView([courLat,courLng], mapRef.current.getZoom(), {animate:true,duration:0.8});
+    }
+    // Set up drag listener to detect user interaction
+    if(mapRef.current && !mapRef.current._norushDragBound) {
+      mapRef.current._norushDragBound = true;
+      mapRef.current.on('dragstart', ()=>{
+        userMovedRef.current = true;
+        clearTimeout(returnTimerRef.current);
+        // Return to courier after 5 seconds of no interaction
+        returnTimerRef.current = setTimeout(()=>{ userMovedRef.current = false; }, 5000);
+      });
+    }
   },[courLat,courLng]);
 
   return <div ref={ref} style={{height,width:"100%",flexShrink:0}}/>;
@@ -341,15 +369,17 @@ function AuthScreen({ onAuth }) {
   };
 
   return (
-    <div style={{ background:T.bg, minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"inherit" }}>
-      <div style={{ width:"100%", maxWidth:380 }}>
-        <div style={{ textAlign:"center", marginBottom:36 }}>
-          <div style={{ fontSize:52, marginBottom:8 }}>🛵</div>
-          <div style={{ fontSize:28, fontWeight:900, color:T.tx, letterSpacing:"-0.8px" }}>NoRush</div>
-          <div style={{ fontSize:13, color:T.mu, marginTop:4 }}>Lauttasaari · Helsinki</div>
-        </div>
+    <div style={{ background:T.bg, minHeight:"100vh", display:"flex", flexDirection:"column", fontFamily:"inherit" }}>
+      {/* Big hero top section */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"40px 28px 20px" }}>
+        <div style={{ fontSize:72, marginBottom:16 }}>🛵</div>
+        <div style={{ fontSize:36, fontWeight:900, color:T.tx, letterSpacing:"-1px", textAlign:"center" }}>NoRush</div>
+        <div style={{ fontSize:16, color:T.mu, marginTop:8, textAlign:"center" }}>Lauttasaari · Helsinki</div>
+        <div style={{ fontSize:14, color:T.mu, marginTop:6, textAlign:"center", lineHeight:1.5 }}>Lower fees. Faster delivery.<br/>Support local.</div>
+      </div>
 
-        <div style={{ background:T.sf, borderRadius:16, padding:24, border:`1px solid ${T.br}` }}>
+      <div style={{ padding:"0 24px 40px", width:"100%" }}>
+        <div style={{ background:T.sf, borderRadius:20, padding:28, border:`1px solid ${T.br}` }}>
           {/* Mode toggle */}
           <div style={{ display:"flex", background:T.hi, borderRadius:10, padding:3, marginBottom:20 }}>
             {[["login","Sign in"],["signup","Create account"]].map(([m,l])=>(
@@ -389,7 +419,7 @@ function AuthScreen({ onAuth }) {
           </Btn>
         </div>
 
-        <div style={{ textAlign:"center", marginTop:16, fontSize:12, color:T.mu }}>
+        <div style={{ textAlign:"center", marginTop:20, fontSize:14, color:T.mu }}>
           {mode==="login" ? "New here? " : "Already have an account? "}
           <span onClick={()=>setMode(mode==="login"?"signup":"login")} style={{ color:T.ac, fontWeight:700, cursor:"pointer" }}>
             {mode==="login" ? "Create account" : "Sign in"}
@@ -2156,7 +2186,7 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
           {k:"finance",l:"Finance"},
           {k:"content",l:"📢 Content"},
         ].map(t=>(
-          <button key={t.k} onClick={()=>setTab(t.k)} style={{ flex:1,padding:"11px 8px",border:"none",background:"none",borderBottom:`2px solid ${tab===t.k?T.ac:"transparent"}`,color:tab===t.k?T.ac:T.mu,fontWeight:800,fontSize:12,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",minWidth:70 }}>{t.l}</button>
+          <button key={t.k} onClick={()=>setTab(t.k)} style={{ flex:1,padding:"10px 4px",border:"none",background:"none",borderBottom:`2px solid ${tab===t.k?T.ac:"transparent"}`,color:tab===t.k?T.ac:T.mu,fontWeight:800,fontSize:10,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",minWidth:0 }}>{t.l}</button>
         ))}
       </div>
 
