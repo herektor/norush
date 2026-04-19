@@ -954,126 +954,135 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
     { bg:"linear-gradient(135deg,#3B82F6,#6366F1)", title:"Fast delivery.", sub:"Couriers based in your neighborhood.", icon:"🛵" },
   ];
   const filteredRests = catFilter ? restaurants.filter(r=>r.cuisine?.toLowerCase().includes(catFilter.toLowerCase())) : restaurants;
-  const activePromos = promos || PROMOS;
+  const activePromos = (promos || PROMOS).map(p=>({...p, image_url: p.image_url||null, sub: p.sub||p.subtitle||"" }));
 
   if(scr==="home") return(
     <div style={{ background:T.bg, minHeight:"100vh", color:T.tx, fontFamily:"inherit", overflowX:"hidden" }}>
 
       {/* TOP BAR */}
-      <div style={{ padding:"20px 20px 14px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+      <div style={{ padding:"24px 22px 16px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
         <div>
-          <div style={{ display:"flex",alignItems:"center",gap:5,marginBottom:6 }}>
-            <span style={{ fontSize:14 }}>📍</span>
-            <span style={{ fontSize:14,color:T.mu,fontWeight:600 }}>{profile?.address?.split(",")[0]||"Lauttasaari, Helsinki"}</span>
+          <div style={{ display:"flex",alignItems:"center",gap:6,marginBottom:8 }}>
+            <span style={{ fontSize:15 }}>📍</span>
+            <span style={{ fontSize:15,color:T.mu,fontWeight:600 }}>{profile?.address?.split(",")[0]||"Lauttasaari, Helsinki"}</span>
           </div>
-          <div style={{ fontSize:32,fontWeight:900,letterSpacing:"-0.8px",lineHeight:1.1 }}>
+          <div style={{ fontSize:34,fontWeight:900,letterSpacing:"-1px",lineHeight:1.1 }}>
             Ready to order,<br/><span style={{ color:T.ac }}>{profile?.full_name?.split(" ")[0]||"there"}?</span>
           </div>
         </div>
-        <div style={{ display:"flex",gap:8,alignItems:"center",paddingTop:6 }}>
-          <button onClick={()=>setScr("history")} style={{ background:T.hi,border:`1px solid ${T.br}`,color:T.mu,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:"8px 16px",borderRadius:22 }}>Orders</button>
+        <div style={{ display:"flex",gap:8,alignItems:"center",paddingTop:8 }}>
+          <button onClick={()=>setScr("history")} style={{ background:T.hi,border:`1px solid ${T.br}`,color:T.mu,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit",padding:"9px 18px",borderRadius:24 }}>Orders</button>
           <button onClick={onSignOut} style={{ background:"none",border:"none",color:T.mu,fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>Out</button>
         </div>
       </div>
 
       {/* ACTIVE ORDER BANNER */}
       {myOrder && !["delivered"].includes(myOrder.status) && (
-        <div onClick={()=>setScr("track")} style={{ margin:"0 20px 16px",background:`linear-gradient(135deg,${T.ac},#FF6535)`,borderRadius:18,padding:"16px 18px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+        <div onClick={()=>setScr("track")} style={{ margin:"0 22px 18px",background:`linear-gradient(135deg,${T.ac},#FF6535)`,borderRadius:20,padding:"18px 20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
           <div>
-            <div style={{ fontWeight:900,fontSize:16,color:"#fff" }}>Order in progress 🛵</div>
-            <div style={{ fontSize:13,color:"rgba(255,255,255,0.85)",marginTop:4 }}>{STATUS_META[myOrder.status]?.label} · Tap to track</div>
+            <div style={{ fontWeight:900,fontSize:17,color:"#fff" }}>Order in progress 🛵</div>
+            <div style={{ fontSize:14,color:"rgba(255,255,255,0.85)",marginTop:5 }}>{STATUS_META[myOrder.status]?.label} · Tap to track</div>
           </div>
-          <div style={{ fontSize:28,color:"#fff" }}>→</div>
+          <div style={{ fontSize:30,color:"#fff" }}>→</div>
         </div>
       )}
 
       {/* CATEGORY FILTERS */}
-      <div style={{ display:"flex",gap:10,padding:"4px 20px 18px",overflowX:"auto",scrollbarWidth:"none",msOverflowStyle:"none" }}>
+      <div style={{ display:"flex",gap:10,padding:"4px 22px 20px",overflowX:"auto",scrollbarWidth:"none",msOverflowStyle:"none" }}>
         {CATS.map(c=>(
           <div key={c.l} onClick={()=>setCatFilter(catFilter===c.l?null:c.l)} style={{
-            display:"flex",alignItems:"center",gap:7,padding:"11px 18px",
-            borderRadius:26,flexShrink:0,cursor:"pointer",
+            display:"flex",alignItems:"center",gap:8,padding:"12px 20px",
+            borderRadius:28,flexShrink:0,cursor:"pointer",
             background:catFilter===c.l?T.ac:T.sf,
             border:`1.5px solid ${catFilter===c.l?T.ac:T.br}`,
             color:catFilter===c.l?"#fff":T.tx,
-            fontSize:15,fontWeight:700,transition:"all 0.15s",
+            fontSize:16,fontWeight:700,transition:"all 0.15s",
           }}>
-            <span style={{ fontSize:18 }}>{c.e}</span><span>{c.l}</span>
+            <span style={{ fontSize:20 }}>{c.e}</span><span>{c.l}</span>
           </div>
         ))}
       </div>
 
-      {/* PROMO CAROUSEL — tall and bold */}
-      <div style={{ margin:"0 20px 26px",position:"relative" }}>
+      {/* PROMO CAROUSEL — very tall, full bleed */}
+      <div style={{ margin:"0 22px 28px",position:"relative" }}>
         <div
           onClick={()=>setPromoIdx((promoIdx+1)%activePromos.length)}
-          style={{ background:activePromos[promoIdx%activePromos.length].bg,borderRadius:24,overflow:"hidden",position:"relative",
-            height:Math.round(window.innerHeight*0.32),minHeight:220,maxHeight:300,cursor:"pointer" }}>
-          <div style={{ position:"absolute",right:-20,bottom:-20,fontSize:200,opacity:0.1,lineHeight:1 }}>{activePromos[promoIdx%activePromos.length].icon}</div>
-          <div style={{ position:"absolute",inset:0,padding:"30px 26px",display:"flex",flexDirection:"column",justifyContent:"flex-end" }}>
-            <div style={{ fontSize:11,fontWeight:900,textTransform:"uppercase",letterSpacing:"0.14em",color:"rgba(255,255,255,0.6)",marginBottom:10 }}>Lauttasaari Pilot</div>
-            <div style={{ fontSize:34,fontWeight:900,color:"#fff",lineHeight:1.1,marginBottom:10 }}>{activePromos[promoIdx%activePromos.length].title}</div>
-            <div style={{ fontSize:16,color:"rgba(255,255,255,0.88)",lineHeight:1.45 }}>{activePromos[promoIdx%activePromos.length].sub}</div>
+          style={{ background:activePromos[promoIdx%activePromos.length].bg,borderRadius:26,overflow:"hidden",
+            position:"relative",height:260,cursor:"pointer" }}>
+          {/* Background image if available */}
+          {activePromos[promoIdx%activePromos.length].image_url&&(
+            <img src={activePromos[promoIdx%activePromos.length].image_url}
+              style={{ position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover" }} alt=""/>
+          )}
+          {/* Overlay for readability */}
+          <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.75) 0%,rgba(0,0,0,0.1) 60%,transparent 100%)" }}/>
+          {/* Background icon when no image */}
+          {!activePromos[promoIdx%activePromos.length].image_url&&(
+            <div style={{ position:"absolute",right:-20,bottom:-20,fontSize:220,opacity:0.1,lineHeight:1 }}>
+              {activePromos[promoIdx%activePromos.length].icon}
+            </div>
+          )}
+          <div style={{ position:"absolute",inset:0,padding:"32px 28px",display:"flex",flexDirection:"column",justifyContent:"flex-end" }}>
+            <div style={{ fontSize:12,fontWeight:900,textTransform:"uppercase",letterSpacing:"0.14em",color:"rgba(255,255,255,0.65)",marginBottom:10 }}>Lauttasaari Pilot</div>
+            <div style={{ fontSize:36,fontWeight:900,color:"#fff",lineHeight:1.05,marginBottom:10 }}>{activePromos[promoIdx%activePromos.length].title}</div>
+            <div style={{ fontSize:16,color:"rgba(255,255,255,0.9)",lineHeight:1.5 }}>{activePromos[promoIdx%activePromos.length].sub}</div>
           </div>
         </div>
-        <div style={{ display:"flex",justifyContent:"center",gap:7,marginTop:14 }}>
+        <div style={{ display:"flex",justifyContent:"center",gap:8,marginTop:16 }}>
           {activePromos.map((_,i)=>(
-            <div key={i} onClick={()=>setPromoIdx(i)} style={{ width:i===promoIdx?28:7,height:7,borderRadius:4,background:i===promoIdx?T.ac:T.br,cursor:"pointer",transition:"all 0.3s" }}/>
+            <div key={i} onClick={()=>setPromoIdx(i)} style={{ width:i===promoIdx?30:8,height:8,borderRadius:4,background:i===promoIdx?T.ac:T.br,cursor:"pointer",transition:"all 0.3s" }}/>
           ))}
         </div>
       </div>
 
       {/* RESTAURANTS — 2-column grid */}
-      <div style={{ padding:"0 20px 100px" }}>
-        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18 }}>
-          <div style={{ fontSize:20,fontWeight:900 }}>
+      <div style={{ padding:"0 22px 100px" }}>
+        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20 }}>
+          <div style={{ fontSize:22,fontWeight:900 }}>
             {catFilter ? `${catFilter} nearby` : "Restaurants nearby"}
           </div>
-          {catFilter&&<button onClick={()=>setCatFilter(null)} style={{ background:"none",border:"none",color:T.ac,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>See all</button>}
+          {catFilter&&<button onClick={()=>setCatFilter(null)} style={{ background:"none",border:"none",color:T.ac,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>See all</button>}
         </div>
 
         {restaurants.length===0&&(
           <div style={{ textAlign:"center",padding:50,color:T.mu }}>
-            <div style={{ fontSize:48,marginBottom:12 }}>🍽</div>
-            <div style={{ fontWeight:700,fontSize:16 }}>Loading restaurants...</div>
+            <div style={{ fontSize:52,marginBottom:14 }}>🍽</div>
+            <div style={{ fontWeight:700,fontSize:17 }}>Loading restaurants...</div>
           </div>
         )}
 
         {filteredRests.length===0&&restaurants.length>0&&(
           <div style={{ textAlign:"center",padding:40,color:T.mu }}>
-            <div style={{ fontSize:40,marginBottom:10 }}>🔍</div>
-            <div style={{ fontWeight:700,fontSize:15 }}>No {catFilter} restaurants yet</div>
-            <button onClick={()=>setCatFilter(null)} style={{ marginTop:14,background:T.hi,border:"none",borderRadius:10,padding:"10px 20px",fontSize:13,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>Show all</button>
+            <div style={{ fontSize:44,marginBottom:12 }}>🔍</div>
+            <div style={{ fontWeight:700,fontSize:16 }}>No {catFilter} restaurants yet</div>
+            <button onClick={()=>setCatFilter(null)} style={{ marginTop:16,background:T.hi,border:"none",borderRadius:12,padding:"12px 22px",fontSize:14,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>Show all</button>
           </div>
         )}
 
-        {/* 2-column grid */}
-        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:14 }}>
+        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
           {filteredRests.map(r=>(
             <div key={r.id} onClick={()=>loadMenu(r)}
-              style={{ background:T.sf,borderRadius:18,overflow:"hidden",cursor:"pointer",
-                border:`1px solid ${T.br}`,boxShadow:"0 4px 16px rgba(0,0,0,0.3)" }}>
-              {/* Cover photo */}
-              <div style={{ height:130,background:`linear-gradient(135deg,#1a0a0a,#2d1515)`,position:"relative",overflow:"hidden" }}>
+              style={{ background:T.sf,borderRadius:20,overflow:"hidden",cursor:"pointer",
+                border:`1px solid ${T.br}`,boxShadow:"0 6px 20px rgba(0,0,0,0.35)" }}>
+              <div style={{ height:150,background:`linear-gradient(135deg,#1a0a0a,#2d1515)`,position:"relative",overflow:"hidden" }}>
                 {r.logo_url
                   ? <img src={r.logo_url} style={{ width:"100%",height:"100%",objectFit:"cover" }} alt={r.name}/>
                   : <div style={{ width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center" }}>
-                      <div style={{ fontSize:56,opacity:0.12 }}>🍽</div>
+                      <div style={{ fontSize:60,opacity:0.12 }}>🍽</div>
                     </div>
                 }
                 <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.85) 0%,transparent 60%)" }}/>
-                <div style={{ position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.7)",borderRadius:16,padding:"3px 8px",fontSize:11,fontWeight:800,color:"#fff" }}>
+                <div style={{ position:"absolute",top:10,right:10,background:"rgba(0,0,0,0.7)",borderRadius:16,padding:"4px 10px",fontSize:12,fontWeight:800,color:"#fff" }}>
                   🛵 €{fee.toFixed(2)}
                 </div>
               </div>
-              {/* Info */}
-              <div style={{ padding:"10px 12px 12px" }}>
-                <div style={{ fontWeight:900,fontSize:14,lineHeight:1.2,marginBottom:3 }}>{r.name}</div>
-                <div style={{ fontSize:12,color:T.mu,marginBottom:6 }}>{r.cuisine}</div>
+              <div style={{ padding:"12px 14px 14px" }}>
+                <div style={{ fontWeight:900,fontSize:15,lineHeight:1.2,marginBottom:4 }}>{r.name}</div>
+                <div style={{ fontSize:13,color:T.mu,marginBottom:8 }}>{r.cuisine}</div>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-                  <div style={{ fontSize:11,color:T.mu }}>⏱ 20-35 min</div>
-                  <div style={{ fontSize:11,color:T.gr,fontWeight:800,display:"flex",alignItems:"center",gap:3 }}>
-                    <span style={{ width:6,height:6,borderRadius:"50%",background:T.gr,display:"inline-block" }}/>Open
+                  <div style={{ fontSize:12,color:T.mu }}>⏱ 20-35 min</div>
+                  <div style={{ fontSize:12,color:T.gr,fontWeight:800,display:"flex",alignItems:"center",gap:4 }}>
+                    <span style={{ width:7,height:7,borderRadius:"50%",background:T.gr,display:"inline-block" }}/>Open
                   </div>
                 </div>
               </div>
@@ -1087,26 +1096,59 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
 
   if(scr==="menu") return(
     <div style={{ background:T.bg,minHeight:"100vh",color:T.tx,fontFamily:"inherit",display:"flex",flexDirection:"column" }}>
-      <TopBar title={rest?.name} back={()=>setScr("home")}/>
-      <div style={{ flex:1,padding:"12px 14px",paddingBottom:cnt>0?90:24,overflowY:"auto" }}>
-        {menuItems.length===0&&<div style={{ textAlign:"center",padding:30,color:T.mu }}>Loading menu...</div>}
+      {/* Header */}
+      <div style={{ padding:"16px 20px",display:"flex",alignItems:"center",gap:12,background:T.bg,position:"sticky",top:0,zIndex:5,borderBottom:`1px solid ${T.br}` }}>
+        <button onClick={()=>setScr("home")} style={{ background:T.hi,border:"none",color:T.tx,width:40,height:40,borderRadius:12,cursor:"pointer",fontSize:20,flexShrink:0 }}>‹</button>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:900,fontSize:18 }}>{rest?.name}</div>
+          <div style={{ fontSize:13,color:T.mu,marginTop:1 }}>{rest?.cuisine} · {rest?.address?.split(",")[0]}</div>
+        </div>
+        <button onClick={onSignOut} style={{ background:"none",border:"none",color:T.mu,fontSize:12,cursor:"pointer",fontFamily:"inherit" }}>Out</button>
+      </div>
+
+      {/* Menu items */}
+      <div style={{ flex:1,padding:"16px 20px",paddingBottom:cnt>0?110:40,overflowY:"auto" }}>
+        {menuItems.length===0&&(
+          <div style={{ textAlign:"center",padding:40,color:T.mu }}>
+            <div style={{ fontSize:44,marginBottom:12 }}>🍽</div>
+            <div style={{ fontWeight:700,fontSize:16 }}>Loading menu...</div>
+          </div>
+        )}
         {[...new Set(menuItems.map(i=>i.category))].map(cat=>(
-          <div key={cat}>
-            <div style={{ fontSize:11,fontWeight:800,color:T.mu,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8,marginTop:16 }}>{cat}</div>
+          <div key={cat} style={{ marginBottom:32 }}>
+            {/* Category header */}
+            <div style={{ fontSize:13,fontWeight:900,color:T.mu,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:14,paddingBottom:8,borderBottom:`1px solid ${T.br}` }}>{cat}</div>
             {menuItems.filter(i=>i.category===cat).map(item=>{
               const q=qty(item.id);
               return(
-                <div key={item.id} style={{ background:T.sf,borderRadius:12,padding:"12px 14px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center",border:`1px solid ${q>0?T.ac+"55":T.br}` }}>
-                  {item.photo_url&&<img src={item.photo_url} style={{ width:72,height:72,borderRadius:10,objectFit:"cover",flexShrink:0 }} alt={item.name}/>}
-                  <div style={{ flex:1,marginRight:10 }}>
-                    <div style={{ fontWeight:700,fontSize:13 }}>{item.name}</div>
-                    <div style={{ color:T.mu,fontSize:11,marginTop:1 }}>{item.description}</div>
-                    {item.allergens?.length>0&&<div style={{ fontSize:9,color:T.yw,marginTop:2 }}>⚠️ {item.allergens.join(", ")}</div>}
-                    <div style={{ color:T.ac,fontWeight:800,fontSize:13,marginTop:5 }}>€{item.price.toFixed(2)}</div>
-                  </div>
-                  <div style={{ display:"flex",alignItems:"center",gap:6 }}>
-                    {q>0&&<><button onClick={()=>remC(item.id)} style={{ width:28,height:28,borderRadius:7,background:T.hi,border:"none",color:T.tx,cursor:"pointer",fontSize:17,fontFamily:"inherit" }}>−</button><span style={{ fontWeight:800,fontSize:13,minWidth:14,textAlign:"center" }}>{q}</span></>}
-                    <button onClick={()=>addC(item)} style={{ width:28,height:28,borderRadius:7,background:T.ac,border:"none",color:"#fff",cursor:"pointer",fontSize:17,fontFamily:"inherit" }}>+</button>
+                <div key={item.id} style={{ background:T.sf,borderRadius:18,marginBottom:14,border:`1.5px solid ${q>0?T.ac+"66":T.br}`,overflow:"hidden",transition:"border-color 0.15s" }}>
+                  {/* Food photo — big */}
+                  {item.photo_url&&(
+                    <div style={{ height:180,overflow:"hidden",position:"relative" }}>
+                      <img src={item.photo_url} style={{ width:"100%",height:"100%",objectFit:"cover" }} alt={item.name}/>
+                      <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.4) 0%,transparent 50%)" }}/>
+                    </div>
+                  )}
+                  {/* Item info */}
+                  <div style={{ padding:"14px 16px 16px" }}>
+                    <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10 }}>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontWeight:800,fontSize:17,lineHeight:1.2,marginBottom:5 }}>{item.name}</div>
+                        {item.description&&<div style={{ color:T.mu,fontSize:14,lineHeight:1.5,marginBottom:6 }}>{item.description}</div>}
+                        {item.allergens?.length>0&&<div style={{ fontSize:12,color:T.yw,marginBottom:6 }}>⚠️ {item.allergens.join(", ")}</div>}
+                        <div style={{ color:T.ac,fontWeight:900,fontSize:20,marginTop:4 }}>€{item.price.toFixed(2)}</div>
+                      </div>
+                      {/* Add/remove controls */}
+                      <div style={{ display:"flex",alignItems:"center",gap:8,flexShrink:0,paddingTop:4 }}>
+                        {q>0&&(
+                          <>
+                            <button onClick={()=>remC(item.id)} style={{ width:36,height:36,borderRadius:10,background:T.hi,border:`1.5px solid ${T.br}`,color:T.tx,cursor:"pointer",fontSize:20,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center" }}>−</button>
+                            <span style={{ fontWeight:900,fontSize:18,minWidth:20,textAlign:"center" }}>{q}</span>
+                          </>
+                        )}
+                        <button onClick={()=>addC(item)} style={{ width:36,height:36,borderRadius:10,background:T.ac,border:"none",color:"#fff",cursor:"pointer",fontSize:20,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center" }}>+</button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
@@ -1114,12 +1156,14 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
           </div>
         ))}
       </div>
+
+      {/* Cart bar */}
       {cnt>0&&(
-        <div style={{ position:"fixed",bottom:0,left:0,right:0,padding:"10px 16px 20px",background:T.bg+"F8",borderTop:`1px solid ${T.br}` }}>
-          <button onClick={()=>setScr("checkout")} style={{ width:"100%",background:T.ac,color:"#fff",border:"none",borderRadius:12,padding:"13px 16px",fontSize:14,fontWeight:800,cursor:"pointer",display:"flex",justifyContent:"space-between",fontFamily:"inherit" }}>
-            <span style={{ background:"rgba(0,0,0,0.2)",borderRadius:6,padding:"2px 9px" }}>{cnt}</span>
-            <span>Checkout</span>
-            <span>€{sub.toFixed(2)}</span>
+        <div style={{ position:"fixed",bottom:0,left:0,right:0,padding:"14px 20px 28px",background:T.bg+"F8",borderTop:`1px solid ${T.br}` }}>
+          <button onClick={()=>setScr("checkout")} style={{ width:"100%",background:T.ac,color:"#fff",border:"none",borderRadius:16,padding:"16px 20px",fontSize:16,fontWeight:900,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",fontFamily:"inherit" }}>
+            <span style={{ background:"rgba(0,0,0,0.2)",borderRadius:8,padding:"3px 12px",fontSize:15 }}>{cnt}</span>
+            <span>Go to checkout</span>
+            <span style={{ fontWeight:900 }}>€{sub.toFixed(2)}</span>
           </button>
         </div>
       )}
@@ -1825,7 +1869,7 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
   const [pending, setPending] = useState({ restaurants:[], couriers:[] });
   const [slides, setSlides] = useState([]);
   const [editSlide, setEditSlide] = useState(null);
-  const [newSlide, setNewSlide] = useState({ title:"", subtitle:"", icon:"🛵", bg_color:"linear-gradient(135deg,#FF3B2F,#FF6535)", sort_order:0, is_active:true });
+  const [newSlide, setNewSlide] = useState({ title:"", subtitle:"", icon:"🛵", bg_color:"linear-gradient(135deg,#FF3B2F,#FF6535)", sort_order:0, is_active:true, image_url:"" });
   const [addingSlide, setAddingSlide] = useState(false);
   const T = N;
 
@@ -1843,7 +1887,7 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
     if(slide.id) {
       await dbAuth("promo_slides","PATCH",{ title:slide.title, subtitle:slide.subtitle, icon:slide.icon, bg_color:slide.bg_color, sort_order:slide.sort_order, is_active:slide.is_active },`?id=eq.${slide.id}`,user.token);
     } else {
-      await dbAuth("promo_slides","POST",{ title:slide.title, subtitle:slide.subtitle, icon:slide.icon, bg_color:slide.bg_color, sort_order:parseInt(slide.sort_order)||0, is_active:true },"",user.token);
+      await dbAuth("promo_slides","POST",{ title:slide.title, subtitle:slide.subtitle, icon:slide.icon, bg_color:slide.bg_color, sort_order:parseInt(slide.sort_order)||0, is_active:true, image_url:slide.image_url||null },"",user.token);
     }
     await loadSlides();
     setEditSlide(null);
@@ -2183,9 +2227,9 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
                 <div style={{ fontWeight:800,fontSize:15,marginBottom:12 }}>New slide</div>
                 {[
                   {l:"Title *",k:"title",ph:"Lower fees."},
-                  {l:"Subtitle *",k:"subtitle",ph:"We charge 15% — Wolt charges 30%."},
+                  {l:"Subtitle",k:"subtitle",ph:"We charge 15% — Wolt charges 30%."},
                   {l:"Icon (emoji)",k:"icon",ph:"🛵"},
-                  {l:"Background (CSS gradient or color)",k:"bg_color",ph:"linear-gradient(135deg,#FF3B2F,#FF6535)"},
+                  {l:"Background gradient",k:"bg_color",ph:"linear-gradient(135deg,#FF3B2F,#FF6535)"},
                   {l:"Sort order (0 = first)",k:"sort_order",ph:"0"},
                 ].map(f=>(
                   <div key={f.k} style={{ marginBottom:10 }}>
@@ -2194,6 +2238,19 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
                       style={{ width:"100%",padding:"9px 12px",borderRadius:8,fontSize:13,border:`1px solid ${T.br}`,background:T.hi,color:T.tx,fontFamily:"inherit",outline:"none" }}/>
                   </div>
                 ))}
+                {/* Image upload for slide */}
+                <div style={{ marginBottom:12 }}>
+                  <div style={{ fontSize:11,fontWeight:700,color:T.mu,marginBottom:6,textTransform:"uppercase" }}>Background image (optional)</div>
+                  <div style={{ display:"flex",gap:10,alignItems:"center" }}>
+                    <ImageUploadBtn label="Add image" currentUrl={newSlide.image_url||null}
+                      onUpload={async(f)=>{
+                        const path=`slides/${Date.now()}.jpg`;
+                        const url=await uploadImage(f,"norush-images",path,user.token);
+                        if(url) setNewSlide(p=>({...p,image_url:url}));
+                      }} size={70} token={user.token}/>
+                    <div style={{ fontSize:12,color:T.mu,lineHeight:1.5 }}>Upload a photo to use as<br/>background for this slide</div>
+                  </div>
+                </div>
                 {/* Preview */}
                 <div style={{ background:newSlide.bg_color,borderRadius:12,padding:"16px",marginBottom:12,position:"relative",overflow:"hidden",minHeight:80 }}>
                   <div style={{ position:"absolute",right:8,bottom:8,fontSize:60,opacity:0.15 }}>{newSlide.icon}</div>
