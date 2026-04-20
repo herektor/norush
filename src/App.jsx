@@ -458,13 +458,13 @@ function AuthScreen({ onAuth }) {
   return (
     <div style={{ background:T.bg, minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"20px 16px", fontFamily:"inherit" }}>
       <div style={{ width:"100%" }}>
-        <div style={{ textAlign:"center", marginBottom:36 }}>
-          <div style={{ fontSize:64, marginBottom:12 }}>🛵</div>
-          <div style={{ fontSize:36, fontWeight:900, color:T.tx, letterSpacing:"-1px" }}>NoRush</div>
-          <div style={{ fontSize:16, color:T.mu, marginTop:8 }}>Lauttasaari · Helsinki</div>
+        <div style={{ textAlign:"center", marginBottom:40 }}>
+          <div style={{ fontSize:100, marginBottom:16, lineHeight:1 }}>🛵</div>
+          <div style={{ fontSize:44, fontWeight:900, color:T.tx, letterSpacing:"-1.5px" }}>NoRush</div>
+          <div style={{ fontSize:18, color:T.mu, marginTop:10 }}>Lauttasaari · Helsinki</div>
         </div>
 
-        <div style={{ background:T.sf, borderRadius:24, padding:"32px 28px", border:`1px solid ${T.br}` }}>
+        <div style={{ background:T.sf, borderRadius:28, padding:"40px 28px", border:`1px solid ${T.br}` }}>
           {/* Mode toggle */}
           <div style={{ display:"flex", background:T.hi, borderRadius:10, padding:3, marginBottom:20 }}>
             {[["login","Sign in"],["signup","Create account"]].map(([m,l])=>(
@@ -1100,119 +1100,119 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
     <div style={{ background:T.bg, minHeight:"100vh", color:T.tx, fontFamily:"inherit", overflowX:"hidden" }}>
 
       {/* TOP BAR */}
-      <div style={{ padding:"24px 20px 16px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+      <div style={{ padding:"28px 20px 18px", display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
         <div style={{ flex:1 }}>
-          <div style={{ display:"flex",alignItems:"center",gap:6,marginBottom:8 }}>
-            <span style={{ fontSize:15 }}>📍</span>
-            <span style={{ fontSize:15,color:T.mu,fontWeight:600 }}>{profile?.address?.split(",")[0]||"Lauttasaari, Helsinki"}</span>
+          <div style={{ display:"flex",alignItems:"center",gap:6,marginBottom:10 }}>
+            <span style={{ fontSize:16 }}>📍</span>
+            <span style={{ fontSize:16,color:T.mu,fontWeight:600 }}>{profile?.address?.split(",")[0]||"Lauttasaari, Helsinki"}</span>
           </div>
-          <div style={{ fontSize:36,fontWeight:900,letterSpacing:"-1px",lineHeight:1.1 }}>
+          <div style={{ fontSize:40,fontWeight:900,letterSpacing:"-1.2px",lineHeight:1.1 }}>
             Ready to order,<br/><span style={{ color:T.ac }}>{profile?.full_name?.split(" ")[0]||"there"}?</span>
           </div>
         </div>
-        <div style={{ display:"flex",flexDirection:"column",gap:10,alignItems:"flex-end",paddingTop:4 }}>
+        <div style={{ display:"flex",flexDirection:"column",gap:10,alignItems:"flex-end",paddingTop:6 }}>
           <button onClick={()=>setScr("history")} style={{
-            background:T.gr, border:"none", color:"#fff",
-            fontSize:15, fontWeight:800, cursor:"pointer", fontFamily:"inherit",
-            padding:"12px 20px", borderRadius:24, whiteSpace:"nowrap"
+            background:T.gr+"22", border:`2px solid ${T.gr+"88"}`,
+            color:T.gr, fontSize:16, fontWeight:900, cursor:"pointer",
+            fontFamily:"inherit", padding:"12px 22px", borderRadius:26, whiteSpace:"nowrap"
           }}>📦 Orders</button>
           <button onClick={onSignOut} style={{
-            background:T.hi, border:`1px solid ${T.br}`, color:T.mu,
-            fontSize:14, fontWeight:700, cursor:"pointer", fontFamily:"inherit",
-            padding:"8px 16px", borderRadius:20
+            background:T.hi, border:`2px solid ${T.br}`,
+            color:T.mu, fontSize:15, fontWeight:700, cursor:"pointer",
+            fontFamily:"inherit", padding:"10px 18px", borderRadius:22
           }}>Sign out</button>
         </div>
       </div>
 
       {/* ACTIVE ORDER BANNER */}
       {myOrder && !["delivered"].includes(myOrder.status) && (
-        <div onClick={()=>setScr("track")} style={{ margin:"0 20px 20px",background:`linear-gradient(135deg,${T.ac},#FF6535)`,borderRadius:20,padding:"18px 20px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 4px 20px rgba(255,59,47,0.3)" }}>
+        <div onClick={()=>setScr("track")} style={{ margin:"0 20px 20px",background:`linear-gradient(135deg,${T.ac},#FF6535)`,borderRadius:22,padding:"20px 22px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"0 6px 24px rgba(255,59,47,0.35)" }}>
           <div>
-            <div style={{ fontWeight:900,fontSize:18,color:"#fff" }}>🛵 Order in progress</div>
-            <div style={{ fontSize:15,color:"rgba(255,255,255,0.9)",marginTop:5 }}>{STATUS_META[myOrder.status]?.label} · Tap to track →</div>
+            <div style={{ fontWeight:900,fontSize:20,color:"#fff" }}>🛵 Order in progress</div>
+            <div style={{ fontSize:16,color:"rgba(255,255,255,0.9)",marginTop:6 }}>{STATUS_META[myOrder.status]?.label} · Tap to track →</div>
           </div>
-          <div style={{ fontSize:32 }}>→</div>
+          <div style={{ fontSize:34 }}>→</div>
         </div>
       )}
 
       {/* CATEGORY FILTERS — 4 per row, 2 rows */}
-      <div style={{ padding:"0 20px 20px" }}>
+      <div style={{ padding:"0 20px 22px" }}>
         <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10 }}>
           {CATS.map(c=>(
             <div key={c.l} onClick={()=>setCatFilter(catFilter===c.l?null:c.l)} style={{
               display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-              gap:5,padding:"12px 6px",borderRadius:16,cursor:"pointer",
+              gap:6,padding:"14px 6px",borderRadius:18,cursor:"pointer",
               background:catFilter===c.l?T.ac:T.sf,
               border:`1.5px solid ${catFilter===c.l?T.ac:T.br}`,
               color:catFilter===c.l?"#fff":T.tx,
               transition:"all 0.15s",
             }}>
-              <span style={{ fontSize:24 }}>{c.e}</span>
+              <span style={{ fontSize:26 }}>{c.e}</span>
               <span style={{ fontSize:13,fontWeight:700,textAlign:"center" }}>{c.l}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* PROMO CAROUSEL — tall and bold */}
+      {/* PROMO CAROUSEL — very tall */}
       <div style={{ margin:"0 20px 28px",position:"relative" }}>
         <div
           onClick={()=>setPromoIdx((promoIdx+1)%activePromos.length)}
           style={{ background:activePromos[promoIdx%activePromos.length].bg,borderRadius:26,overflow:"hidden",
-            position:"relative",height:280,cursor:"pointer" }}>
+            position:"relative",height:320,cursor:"pointer" }}>
           {activePromos[promoIdx%activePromos.length].image_url&&(
             <img src={activePromos[promoIdx%activePromos.length].image_url}
               style={{ position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover" }} alt=""/>
           )}
-          <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.75) 0%,rgba(0,0,0,0.1) 60%,transparent 100%)" }}/>
+          <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.8) 0%,rgba(0,0,0,0.1) 55%,transparent 100%)" }}/>
           {!activePromos[promoIdx%activePromos.length].image_url&&(
-            <div style={{ position:"absolute",right:-20,bottom:-20,fontSize:220,opacity:0.1,lineHeight:1 }}>
+            <div style={{ position:"absolute",right:-20,bottom:-20,fontSize:240,opacity:0.08,lineHeight:1 }}>
               {activePromos[promoIdx%activePromos.length].icon}
             </div>
           )}
-          <div style={{ position:"absolute",inset:0,padding:"32px 28px",display:"flex",flexDirection:"column",justifyContent:"flex-end" }}>
-            <div style={{ fontSize:12,fontWeight:900,textTransform:"uppercase",letterSpacing:"0.14em",color:"rgba(255,255,255,0.65)",marginBottom:10 }}>Lauttasaari Pilot</div>
-            <div style={{ fontSize:38,fontWeight:900,color:"#fff",lineHeight:1.05,marginBottom:10 }}>{activePromos[promoIdx%activePromos.length].title}</div>
-            <div style={{ fontSize:17,color:"rgba(255,255,255,0.9)",lineHeight:1.5 }}>{activePromos[promoIdx%activePromos.length].sub}</div>
+          <div style={{ position:"absolute",inset:0,padding:"36px 30px",display:"flex",flexDirection:"column",justifyContent:"flex-end" }}>
+            <div style={{ fontSize:13,fontWeight:900,textTransform:"uppercase",letterSpacing:"0.14em",color:"rgba(255,255,255,0.65)",marginBottom:12 }}>Lauttasaari Pilot</div>
+            <div style={{ fontSize:42,fontWeight:900,color:"#fff",lineHeight:1.0,marginBottom:12 }}>{activePromos[promoIdx%activePromos.length].title}</div>
+            <div style={{ fontSize:18,color:"rgba(255,255,255,0.9)",lineHeight:1.5 }}>{activePromos[promoIdx%activePromos.length].sub}</div>
           </div>
         </div>
         <div style={{ display:"flex",justifyContent:"center",gap:8,marginTop:16 }}>
           {activePromos.map((_,i)=>(
-            <div key={i} onClick={()=>setPromoIdx(i)} style={{ width:i===promoIdx?32:8,height:8,borderRadius:4,background:i===promoIdx?T.ac:T.br,cursor:"pointer",transition:"all 0.3s" }}/>
+            <div key={i} onClick={()=>setPromoIdx(i)} style={{ width:i===promoIdx?34:9,height:9,borderRadius:5,background:i===promoIdx?T.ac:T.br,cursor:"pointer",transition:"all 0.3s" }}/>
           ))}
         </div>
       </div>
 
-      {/* RESTAURANTS — 2-column grid */}
+      {/* RESTAURANTS */}
       <div style={{ padding:"0 20px 100px" }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20 }}>
-          <div style={{ fontSize:22,fontWeight:900 }}>
+          <div style={{ fontSize:24,fontWeight:900 }}>
             {catFilter?`${catFilter} nearby`:"Restaurants nearby"}
           </div>
-          {catFilter&&<button onClick={()=>setCatFilter(null)} style={{ background:"none",border:"none",color:T.ac,fontSize:15,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>See all</button>}
+          {catFilter&&<button onClick={()=>setCatFilter(null)} style={{ background:"none",border:"none",color:T.ac,fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>See all</button>}
         </div>
 
         {restaurants.length===0&&(
           <div style={{ textAlign:"center",padding:50,color:T.mu }}>
-            <div style={{ fontSize:52,marginBottom:14 }}>🍽</div>
-            <div style={{ fontWeight:700,fontSize:17 }}>Loading restaurants...</div>
+            <div style={{ fontSize:56,marginBottom:14 }}>🍽</div>
+            <div style={{ fontWeight:700,fontSize:18 }}>Loading restaurants...</div>
           </div>
         )}
 
         {filteredRests.length===0&&restaurants.length>0&&(
           <div style={{ textAlign:"center",padding:40,color:T.mu }}>
-            <div style={{ fontSize:44,marginBottom:12 }}>🔍</div>
-            <div style={{ fontWeight:700,fontSize:16 }}>No {catFilter} restaurants yet</div>
-            <button onClick={()=>setCatFilter(null)} style={{ marginTop:16,background:T.hi,border:"none",borderRadius:12,padding:"14px 24px",fontSize:15,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>Show all</button>
+            <div style={{ fontSize:48,marginBottom:12 }}>🔍</div>
+            <div style={{ fontWeight:700,fontSize:17 }}>No {catFilter} restaurants yet</div>
+            <button onClick={()=>setCatFilter(null)} style={{ marginTop:16,background:T.hi,border:"none",borderRadius:14,padding:"14px 26px",fontSize:16,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>Show all</button>
           </div>
         )}
 
-        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
+        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:18 }}>
           {filteredRests.map(r=>(
             <div key={r.id} onClick={()=>loadMenu(r)}
               style={{ background:T.sf,borderRadius:22,overflow:"hidden",cursor:"pointer",
-                border:`1px solid ${T.br}`,boxShadow:"0 6px 20px rgba(0,0,0,0.35)" }}>
-              <div style={{ height:160,background:`linear-gradient(135deg,#1a0a0a,#2d1515)`,position:"relative",overflow:"hidden" }}>
+                border:`1px solid ${T.br}`,boxShadow:"0 6px 24px rgba(0,0,0,0.4)" }}>
+              <div style={{ height:170,background:`linear-gradient(135deg,#1a0a0a,#2d1515)`,position:"relative",overflow:"hidden" }}>
                 {r.logo_url
                   ? <img src={r.logo_url} style={{ width:"100%",height:"100%",objectFit:"cover" }} alt={r.name}/>
                   : <div style={{ width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center" }}>
@@ -1220,13 +1220,13 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
                     </div>
                 }
                 <div style={{ position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.85) 0%,transparent 60%)" }}/>
-                <div style={{ position:"absolute",top:10,right:10,background:"rgba(0,0,0,0.7)",borderRadius:16,padding:"4px 10px",fontSize:12,fontWeight:800,color:"#fff" }}>
+                <div style={{ position:"absolute",top:10,right:10,background:"rgba(0,0,0,0.72)",borderRadius:16,padding:"5px 11px",fontSize:13,fontWeight:800,color:"#fff" }}>
                   🛵 €{fee.toFixed(2)}
                 </div>
               </div>
               <div style={{ padding:"14px 14px 16px" }}>
-                <div style={{ fontWeight:900,fontSize:16,lineHeight:1.2,marginBottom:4 }}>{r.name}</div>
-                <div style={{ fontSize:14,color:T.mu,marginBottom:8 }}>{r.cuisine}</div>
+                <div style={{ fontWeight:900,fontSize:17,lineHeight:1.2,marginBottom:5 }}>{r.name}</div>
+                <div style={{ fontSize:14,color:T.mu,marginBottom:10 }}>{r.cuisine}</div>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
                   <div style={{ fontSize:13,color:T.mu }}>⏱ 20-35 min</div>
                   <div style={{ fontSize:13,color:T.gr,fontWeight:800,display:"flex",alignItems:"center",gap:4 }}>
@@ -1429,13 +1429,13 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
     <div style={{ background:D.bg,height:"100vh",display:"flex",flexDirection:"column",color:D.tx,fontFamily:"inherit",overflow:"hidden" }}>
 
       {/* Header */}
-      <div style={{ padding:"14px 20px",display:"flex",alignItems:"center",gap:12,background:D.bg,flexShrink:0,borderBottom:`1px solid ${D.br}` }}>
-        <button onClick={()=>setScr("home")} style={{ background:D.hi,border:"none",color:D.tx,width:40,height:40,borderRadius:12,cursor:"pointer",fontSize:20,flexShrink:0 }}>‹</button>
+      <div style={{ padding:"18px 20px",display:"flex",alignItems:"center",gap:14,background:D.bg,flexShrink:0,borderBottom:`1px solid ${D.br}` }}>
+        <button onClick={()=>setScr("home")} style={{ background:D.hi,border:"none",color:D.tx,width:48,height:48,borderRadius:14,cursor:"pointer",fontSize:24,flexShrink:0 }}>‹</button>
         <div style={{ flex:1 }}>
-          <div style={{ fontWeight:900,fontSize:17 }}>Live tracking</div>
-          {myOrder&&<div style={{ fontSize:12,color:D.mu,marginTop:1 }}>Order #{myOrder.id?.slice(0,8)} · €{myOrder.total?.toFixed(2)}</div>}
+          <div style={{ fontWeight:900,fontSize:22 }}>Live tracking</div>
+          {myOrder&&<div style={{ fontSize:15,color:D.mu,marginTop:3 }}>Order #{myOrder.id?.slice(0,8)} · €{myOrder.total?.toFixed(2)}</div>}
         </div>
-        <button onClick={fetchOrders} style={{ background:D.hi,border:"none",color:D.mu,width:40,height:40,borderRadius:12,cursor:"pointer",fontSize:16,flexShrink:0 }}>↻</button>
+        <button onClick={fetchOrders} style={{ background:D.hi,border:"none",color:D.mu,width:48,height:48,borderRadius:14,cursor:"pointer",fontSize:20,flexShrink:0 }}>↻</button>
       </div>
 
       {myOrder?(
@@ -1480,12 +1480,12 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
                 return(
                   <div key={s} style={{ display:"flex",gap:14,marginBottom:i<SK.length-1?14:0 }}>
                     <div style={{ display:"flex",flexDirection:"column",alignItems:"center",flexShrink:0 }}>
-                      <div style={{ width:28,height:28,borderRadius:"50%",
+                      <div style={{ width:34,height:34,borderRadius:"50%",
                         background:done?D.gr:active?D.ac:D.hi,
                         display:"flex",alignItems:"center",justifyContent:"center",
-                        fontSize:done?14:12,color:"#fff",fontWeight:800,
+                        fontSize:done?16:14,color:"#fff",fontWeight:800,
                         transition:"background 0.3s",
-                        boxShadow:active?`0 0 0 4px ${D.ac}33`:"none" }}>
+                        boxShadow:active?`0 0 0 5px ${D.ac}33`:"none" }}>
                         {done?"✓":i+1}
                       </div>
                       {i<SK.length-1&&<div style={{ width:2,flex:1,minHeight:14,marginTop:4,background:done?D.gr:D.br,transition:"background 0.3s" }}/>}
@@ -2029,7 +2029,7 @@ function CourierApp({ user, onSignOut, orders, fetchOrders }) {
             </div>
           </div>
           <div style={{ display:"flex",gap:8,alignItems:"center" }}>
-            <button onClick={()=>setOnline(p=>!p)} style={{ background:online?T.gr+"22":T.hi,color:online?T.gr:T.mu,border:`2px solid ${online?T.gr+"88":T.br}`,borderRadius:26,padding:"12px 24px",fontSize:16,fontWeight:900,cursor:"pointer",fontFamily:"inherit" }}>
+            <button onClick={()=>setOnline(p=>!p)} style={{ background:online?T.gr+"22":T.hi,color:online?T.gr:T.mu,border:`2px solid ${online?T.gr+"88":T.br}`,borderRadius:22,padding:"10px 18px",fontSize:14,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>
               {online?"● Online":"○ Go online"}
             </button>
             <button onClick={onSignOut} style={{ background:"none",border:"none",color:T.mu,fontSize:11,cursor:"pointer",fontFamily:"inherit" }}>Out</button>
