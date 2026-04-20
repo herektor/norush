@@ -228,8 +228,8 @@ function Btn({ children, onClick, variant="primary", T=D, disabled, style={} }) 
   };
   return (
     <button onClick={onClick} disabled={disabled} style={{
-      ...styles[variant], border:"none", borderRadius:14, padding:"16px 22px",
-      fontSize:16, fontWeight:800, cursor:disabled?"not-allowed":"pointer",
+      ...styles[variant], border:"none", borderRadius:16, padding:"18px 24px",
+      fontSize:17, fontWeight:800, cursor:disabled?"not-allowed":"pointer",
       fontFamily:"inherit", transition:"opacity 0.15s", opacity:disabled?0.5:1,
       width:"100%", ...style,
     }}>{children}</button>
@@ -237,18 +237,51 @@ function Btn({ children, onClick, variant="primary", T=D, disabled, style={} }) 
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   LEAFLET MAP
+   LEAFLET MAP with OSRM routing
 ═══════════════════════════════════════════════════════════════════ */
+
+// Fetch route from OSRM (free, no API key)
+async function getRoute(from, to) {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.routes?.[0]) return data.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+  } catch(e) { console.log("Route error:", e); }
+  return null;
+}
+
 function LiveMap({ restLat=60.1575, restLng=24.8855, restName="Restaurant",
-                   custLat, custLng, courLat, courLng, height=220, zoom=14 }) {
+                   custLat, custLng, courLat, courLng, height=220, zoom=15, showRoute=true }) {
   const ref = useRef(null);
   const mapRef = useRef(null);
   const marks = useRef({});
+  const routes = useRef({});
+  const userMovedRef = useRef(false);
+  const returnTimerRef = useRef(null);
+  const optimalViewRef = useRef(null);
 
-  const mkIcon = (emoji, bg, size=36) => window.L?.divIcon({
-    html:`<div style="background:${bg};border-radius:50%;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*.48)}px;box-shadow:0 3px 10px rgba(0,0,0,.3);border:2px solid rgba(255,255,255,.5)">${emoji}</div>`,
+  const mkIcon = (emoji, bg, size=40) => window.L?.divIcon({
+    html:`<div style="background:${bg};border-radius:50%;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;font-size:${Math.round(size*.46)}px;box-shadow:0 3px 12px rgba(0,0,0,.4);border:3px solid rgba(255,255,255,.8)">${emoji}</div>`,
     className:"", iconSize:[size,size], iconAnchor:[size/2,size/2],
   });
+
+  const drawRoute = async (Lf, m, from, to, color, key) => {
+    if(!from||!to) return;
+    const coords = await getRoute(from, to);
+    if(!coords) return;
+    if(routes.current[key]) { routes.current[key].remove(); }
+    routes.current[key] = Lf.polyline(coords, {
+      color, weight:4, opacity:0.75, dashArray:null,
+      lineCap:"round", lineJoin:"round"
+    }).addTo(m);
+  };
+
+  const resetToOptimal = (m) => {
+    if(!optimalViewRef.current||!m) return;
+    const {center, zoom} = optimalViewRef.current;
+    m.setView(center, zoom, {animate:true, duration:0.8});
+  };
 
   useEffect(()=>{
     if(mapRef.current) return;
@@ -262,22 +295,21 @@ function LiveMap({ restLat=60.1575, restLng=24.8855, restName="Restaurant",
     s.onload=()=>{
       const Lf=window.L;
       const m=Lf.map(ref.current,{
-        zoomControl:false,
-        scrollWheelZoom:false,
-        touchZoom:true,
-        doubleClickZoom:true,
-        dragging:true,
-        tap:false,
-        bounceAtZoomLimits:false,
+        zoomControl:false, scrollWheelZoom:false,
+        touchZoom:true, doubleClickZoom:true,
+        dragging:true, tap:false,
       }).setView([restLat,restLng],zoom);
-      // Prevent map touch events from bubbling to page
-      ref.current.addEventListener('touchstart', e=>e.stopPropagation(), {passive:false});
-      ref.current.addEventListener('touchmove', e=>e.stopPropagation(), {passive:false});
-      Lf.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{attribution:"© OpenStreetMap © CARTO",maxZoom:19}).addTo(m);
+
+      Lf.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
+        attribution:"© OpenStreetMap © CARTO", maxZoom:19
+      }).addTo(m);
       Lf.control.zoom({position:"bottomright"}).addTo(m);
+
       marks.current.rest=Lf.marker([restLat,restLng],{icon:mkIcon("🍽","#FF3B2F")}).addTo(m).bindPopup(restName);
-      if(custLat&&custLng) marks.current.cust=Lf.marker([custLat,custLng],{icon:mkIcon("📍","#FF3B2F",32)}).addTo(m).bindPopup("Delivery address");
+      if(custLat&&custLng) marks.current.cust=Lf.marker([custLat,custLng],{icon:mkIcon("📍","#FF3B2F",34)}).addTo(m).bindPopup("Delivery address");
       if(courLat&&courLng) marks.current.cour=Lf.marker([courLat,courLng],{icon:mkIcon("🛵","#00C896")}).addTo(m).bindPopup("Courier");
+
+      // Fit bounds to show all markers
       const pts=[[restLat,restLng]];
       if(custLat&&custLng) pts.push([custLat,custLng]);
       if(courLat&&courLng) pts.push([courLat,courLng]);
@@ -286,35 +318,90 @@ function LiveMap({ restLat=60.1575, restLng=24.8855, restName="Restaurant",
         const lngs=pts.map(p=>p[1]);
         const latDiff=Math.max(...lats)-Math.min(...lats);
         const lngDiff=Math.max(...lngs)-Math.min(...lngs);
-        if(latDiff<0.1&&lngDiff<0.1) m.fitBounds(pts,{padding:[50,50],maxZoom:16});
-        else m.setView([restLat,restLng],15);
+        if(latDiff<0.12&&lngDiff<0.12){
+          m.fitBounds(pts,{padding:[50,50],maxZoom:16});
+          setTimeout(()=>{
+            optimalViewRef.current={center:m.getCenter(),zoom:m.getZoom()};
+          },500);
+        } else {
+          m.setView([restLat,restLng],15);
+          optimalViewRef.current={center:[restLat,restLng],zoom:15};
+        }
+      } else {
+        optimalViewRef.current={center:[restLat,restLng],zoom};
       }
+
+      // Draw initial routes
+      if(showRoute) {
+        if(courLat&&courLng) {
+          drawRoute(Lf,m,[courLat,courLng],[restLat,restLng],"#00C896","courToRest");
+          if(custLat&&custLng) drawRoute(Lf,m,[restLat,restLng],[custLat,custLng],"#3B82F6","restToCust");
+        } else if(custLat&&custLng) {
+          drawRoute(Lf,m,[restLat,restLng],[custLat,custLng],"#3B82F6","restToCust");
+        }
+      }
+
+      // Auto-reset after user moves map
+      m.on("dragstart zoomstart",()=>{
+        userMovedRef.current=true;
+        clearTimeout(returnTimerRef.current);
+        returnTimerRef.current=setTimeout(()=>{
+          userMovedRef.current=false;
+          resetToOptimal(m);
+        },5000);
+      });
+
       mapRef.current=m;
     };
     document.head.appendChild(s);
     return()=>{ if(mapRef.current){mapRef.current.remove();mapRef.current=null;} };
   },[]);
 
-  const userMovedRef = useRef(false);
-  const returnTimerRef = useRef(null);
-
   useEffect(()=>{
     if(!mapRef.current||!window.L||!courLat||!courLng) return;
+    const Lf=window.L;
     if(marks.current.cour) marks.current.cour.setLatLng([courLat,courLng]);
-    else marks.current.cour=window.L.marker([courLat,courLng],{icon:mkIcon("🛵","#00C896")}).addTo(mapRef.current).bindPopup("Courier");
-    // Only auto-center if user hasn't moved the map recently
-    if(!userMovedRef.current) {
-      mapRef.current.setView([courLat,courLng], mapRef.current.getZoom(), {animate:true,duration:0.8});
+    else marks.current.cour=Lf.marker([courLat,courLng],{icon:mkIcon("🛵","#00C896")}).addTo(mapRef.current).bindPopup("Courier");
+
+    // Smart optimal view:
+    // If we have courier + customer → show both (courier heading to customer)
+    // If we have courier + restaurant → show both (courier heading to restaurant)
+    // Otherwise → just center on courier
+    let smartCenter = [courLat,courLng];
+    let smartZoom = mapRef.current.getZoom()||15;
+    if(custLat&&custLng) {
+      // courier heading to customer - fit both
+      const pts=[[courLat,courLng],[custLat,custLng]];
+      const lats=pts.map(p=>p[0]);
+      const lngs=pts.map(p=>p[1]);
+      const latDiff=Math.max(...lats)-Math.min(...lats);
+      const lngDiff=Math.max(...lngs)-Math.min(...lngs);
+      if(latDiff<0.1&&lngDiff<0.1) {
+        smartCenter=[(courLat+custLat)/2,(courLng+custLng)/2];
+        smartZoom=14;
+      }
+    } else {
+      // courier heading to restaurant - fit both
+      const pts=[[courLat,courLng],[restLat,restLng]];
+      const lats=pts.map(p=>p[0]);
+      const lngs=pts.map(p=>p[1]);
+      const latDiff=Math.max(...lats)-Math.min(...lats);
+      const lngDiff=Math.max(...lngs)-Math.min(...lngs);
+      if(latDiff<0.1&&lngDiff<0.1) {
+        smartCenter=[(courLat+restLat)/2,(courLng+restLng)/2];
+        smartZoom=14;
+      }
     }
-    // Set up drag listener to detect user interaction
-    if(mapRef.current && !mapRef.current._norushDragBound) {
-      mapRef.current._norushDragBound = true;
-      mapRef.current.on('dragstart', ()=>{
-        userMovedRef.current = true;
-        clearTimeout(returnTimerRef.current);
-        // Return to courier after 5 seconds of no interaction
-        returnTimerRef.current = setTimeout(()=>{ userMovedRef.current = false; }, 5000);
-      });
+    optimalViewRef.current={center:smartCenter,zoom:smartZoom};
+
+    if(!userMovedRef.current){
+      mapRef.current.setView(smartCenter,smartZoom,{animate:true,duration:0.6});
+    }
+
+    // Update routes
+    if(showRoute) {
+      drawRoute(Lf,mapRef.current,[courLat,courLng],[restLat,restLng],"#00C896","courToRest");
+      if(custLat&&custLng) drawRoute(Lf,mapRef.current,[restLat,restLng],[custLat,custLng],"#3B82F6","restToCust");
     }
   },[courLat,courLng]);
 
@@ -369,16 +456,14 @@ function AuthScreen({ onAuth }) {
   };
 
   return (
-    <div style={{ background:T.bg, minHeight:"100vh", display:"flex", flexDirection:"column", fontFamily:"inherit" }}>
-      {/* Big hero top section */}
-      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"40px 28px 20px" }}>
-        <div style={{ fontSize:72, marginBottom:16 }}>🛵</div>
-        <div style={{ fontSize:36, fontWeight:900, color:T.tx, letterSpacing:"-1px", textAlign:"center" }}>NoRush</div>
-        <div style={{ fontSize:16, color:T.mu, marginTop:8, textAlign:"center" }}>Lauttasaari · Helsinki</div>
-        <div style={{ fontSize:14, color:T.mu, marginTop:6, textAlign:"center", lineHeight:1.5 }}>Lower fees. Faster delivery.<br/>Support local.</div>
-      </div>
+    <div style={{ background:T.bg, minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"inherit" }}>
+      <div style={{ width:"100%", maxWidth:500 }}>
+        <div style={{ textAlign:"center", marginBottom:32 }}>
+          <div style={{ fontSize:56, marginBottom:10 }}>🛵</div>
+          <div style={{ fontSize:32, fontWeight:900, color:T.tx, letterSpacing:"-0.8px" }}>NoRush</div>
+          <div style={{ fontSize:15, color:T.mu, marginTop:6 }}>Lauttasaari · Helsinki</div>
+        </div>
 
-      <div style={{ padding:"0 24px 40px", width:"100%" }}>
         <div style={{ background:T.sf, borderRadius:20, padding:28, border:`1px solid ${T.br}` }}>
           {/* Mode toggle */}
           <div style={{ display:"flex", background:T.hi, borderRadius:10, padding:3, marginBottom:20 }}>
@@ -401,8 +486,8 @@ function AuthScreen({ onAuth }) {
                     background:role===r.key?r.color+"18":T.hi, cursor:"pointer", fontFamily:"inherit",
                     display:"flex", alignItems:"center", gap:8, transition:"all 0.15s",
                   }}>
-                    <span style={{ fontSize:20 }}>{r.emoji}</span>
-                    <span style={{ fontSize:12, fontWeight:800, color:role===r.key?r.color:T.tx }}>{r.label}</span>
+                    <span style={{ fontSize:24 }}>{r.emoji}</span>
+                    <span style={{ fontSize:14, fontWeight:800, color:role===r.key?r.color:T.tx }}>{r.label}</span>
                   </button>
                 ))}
               </div>
@@ -419,7 +504,7 @@ function AuthScreen({ onAuth }) {
           </Btn>
         </div>
 
-        <div style={{ textAlign:"center", marginTop:20, fontSize:14, color:T.mu }}>
+        <div style={{ textAlign:"center", marginTop:20, fontSize:15, color:T.mu }}>
           {mode==="login" ? "New here? " : "Already have an account? "}
           <span onClick={()=>setMode(mode==="login"?"signup":"login")} style={{ color:T.ac, fontWeight:700, cursor:"pointer" }}>
             {mode==="login" ? "Create account" : "Sign in"}
@@ -1210,11 +1295,11 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
                       <div style={{ display:"flex",alignItems:"center",gap:8,flexShrink:0,paddingTop:4 }}>
                         {q>0&&(
                           <>
-                            <button onClick={()=>remC(item.id)} style={{ width:36,height:36,borderRadius:10,background:T.hi,border:`1.5px solid ${T.br}`,color:T.tx,cursor:"pointer",fontSize:20,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center" }}>−</button>
+                            <button onClick={()=>remC(item.id)} style={{ width:44,height:44,borderRadius:12,background:T.hi,border:`1.5px solid ${T.br}`,color:T.tx,cursor:"pointer",fontSize:24,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center" }}>−</button>
                             <span style={{ fontWeight:900,fontSize:18,minWidth:20,textAlign:"center" }}>{q}</span>
                           </>
                         )}
-                        <button onClick={()=>addC(item)} style={{ width:36,height:36,borderRadius:10,background:T.ac,border:"none",color:"#fff",cursor:"pointer",fontSize:20,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center" }}>+</button>
+                        <button onClick={()=>addC(item)} style={{ width:44,height:44,borderRadius:12,background:T.ac,border:"none",color:"#fff",cursor:"pointer",fontSize:24,fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center" }}>+</button>
                       </div>
                     </div>
                   </div>
@@ -1304,7 +1389,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
 
       {/* Place order button */}
       <div style={{ position:"fixed",bottom:0,left:0,right:0,padding:"16px 22px 32px",background:D.bg+"F8",borderTop:`1px solid ${D.br}` }}>
-        <button onClick={placeOrder} disabled={loading} style={{ width:"100%",background:loading?D.mu:D.ac,color:"#fff",border:"none",borderRadius:18,padding:"18px 22px",fontSize:17,fontWeight:900,cursor:loading?"not-allowed":"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",fontFamily:"inherit",opacity:loading?0.7:1 }}>
+        <button onClick={placeOrder} disabled={loading} style={{ width:"100%",background:loading?D.mu:D.ac,color:"#fff",border:"none",borderRadius:20,padding:"20px 24px",fontSize:18,fontWeight:900,cursor:loading?"not-allowed":"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",fontFamily:"inherit",opacity:loading?0.7:1 }}>
           <span>{loading?"Placing order...":"Place order"}</span>
           <span style={{ fontWeight:900,fontSize:18 }}>€{tot.toFixed(2)}</span>
         </button>
@@ -1455,7 +1540,7 @@ function CustomerApp({ user, onSignOut, orders, fetchOrders }) {
         <div style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:D.mu,gap:12,padding:30 }}>
           <div style={{ fontSize:48 }}>🛵</div>
           <div style={{ fontWeight:700,fontSize:16 }}>Loading your order...</div>
-          <button onClick={fetchOrders} style={{ background:D.hi,border:"none",borderRadius:10,padding:"10px 22px",fontSize:14,fontWeight:700,cursor:"pointer",color:D.mu,fontFamily:"inherit" }}>↻ Refresh</button>
+          <button onClick={fetchOrders} style={{ background:D.hi,border:"none",borderRadius:10,padding:"14px 26px",fontSize:16,fontWeight:700,cursor:"pointer",color:D.mu,fontFamily:"inherit" }}>↻ Refresh</button>
         </div>
       )}
     </div>
@@ -1646,7 +1731,7 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
                   </div>
                   {NEXT[o.status]&&(
                     <button onClick={e=>{e.stopPropagation();advance(o);}} disabled={updating===o.id}
-                      style={{ width:"100%",marginTop:8,padding:"8px 0",background:isNew?T.ac:"#2C3E50",color:"#fff",border:"none",borderRadius:8,fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit",opacity:updating===o.id?0.6:1 }}>
+                      style={{ width:"100%",marginTop:10,padding:"14px 0",background:isNew?T.ac:"#2C3E50",color:"#fff",border:"none",borderRadius:12,fontSize:15,fontWeight:800,cursor:"pointer",fontFamily:"inherit",opacity:updating===o.id?0.6:1 }}>
                       {updating===o.id?"Updating...":BTN[o.status]} →
                     </button>
                   )}
@@ -1693,7 +1778,7 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
                 </div>
                 {NEXT[selected.status]&&(
                   <button onClick={()=>advance(selected)} disabled={updating===selected.id}
-                    style={{ width:"100%",padding:"14px 0",background:T.ac,color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:900,cursor:"pointer",fontFamily:"inherit" }}>
+                    style={{ width:"100%",padding:"18px 0",background:T.ac,color:"#fff",border:"none",borderRadius:14,fontSize:17,fontWeight:900,cursor:"pointer",fontFamily:"inherit" }}>
                     {updating===selected.id?"Updating...":BTN[selected.status]} →
                   </button>
                 )}
@@ -1758,7 +1843,7 @@ function RestaurantApp({ user, onSignOut, orders, fetchOrders }) {
               </div>
               <div style={{ display:"flex",gap:8 }}>
                 <button onClick={saveNewItem} disabled={menuLoading}
-                  style={{ flex:1,padding:"12px 0",background:T.gr,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>
+                  style={{ flex:1,padding:"16px 0",background:T.gr,color:"#fff",border:"none",borderRadius:12,fontSize:16,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>
                   {menuLoading?"Saving...":"Save dish ✓"}
                 </button>
                 <button onClick={()=>setAddingItem(false)}
@@ -1956,7 +2041,7 @@ function CourierApp({ user, onSignOut, orders, fetchOrders }) {
             </div>
           </div>
           <div style={{ display:"flex",gap:8,alignItems:"center" }}>
-            <button onClick={()=>setOnline(p=>!p)} style={{ background:online?T.gr+"22":T.hi,color:online?T.gr:T.mu,border:`1px solid ${online?T.gr+"44":T.br}`,borderRadius:20,padding:"5px 14px",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>
+            <button onClick={()=>setOnline(p=>!p)} style={{ background:online?T.gr+"22":T.hi,color:online?T.gr:T.mu,border:`1px solid ${online?T.gr+"44":T.br}`,borderRadius:24,padding:"10px 20px",fontSize:15,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>
               {online?"● Online":"○ Go online"}
             </button>
             <button onClick={onSignOut} style={{ background:"none",border:"none",color:T.mu,fontSize:11,cursor:"pointer",fontFamily:"inherit" }}>Out</button>
@@ -1974,7 +2059,7 @@ function CourierApp({ user, onSignOut, orders, fetchOrders }) {
         {scr==="jobs"&&(
           <>
             {!online&&<div style={{ background:T.sf,borderRadius:12,padding:24,textAlign:"center",color:T.mu }}><div style={{ fontSize:36,marginBottom:8 }}>😴</div><div style={{ fontWeight:700,fontSize:14 }}>You're offline</div><div style={{ fontSize:12,marginTop:4 }}>Tap "Go online" to see jobs</div></div>}
-            {online&&available.length===0&&<div style={{ background:T.sf,borderRadius:12,padding:24,textAlign:"center",color:T.mu }}><div style={{ fontSize:36,marginBottom:8 }}>🕐</div><div style={{ fontWeight:700,fontSize:14 }}>No jobs right now</div><button onClick={fetchOrders} style={{ marginTop:14,background:T.hi,border:"none",borderRadius:8,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>↻ Refresh</button></div>}
+            {online&&available.length===0&&<div style={{ background:T.sf,borderRadius:12,padding:24,textAlign:"center",color:T.mu }}><div style={{ fontSize:36,marginBottom:8 }}>🕐</div><div style={{ fontWeight:700,fontSize:14 }}>No jobs right now</div><button onClick={fetchOrders} style={{ marginTop:14,background:T.hi,border:"none",borderRadius:10,padding:"12px 20px",fontSize:15,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>↻ Refresh</button></div>}
             {online&&available.map(o=>(
               <div key={o.id} style={{ background:T.sf,borderRadius:14,padding:"14px 16px",marginBottom:12,border:`1px solid ${T.br}` }}>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10 }}>
@@ -1982,14 +2067,14 @@ function CourierApp({ user, onSignOut, orders, fetchOrders }) {
                   <div style={{ textAlign:"right" }}><div style={{ fontWeight:900,fontSize:18,color:T.gr }}>+€{((o.delivery_fee||1.9)*0.75).toFixed(2)}</div><div style={{ fontSize:9,color:T.mu }}>your cut</div></div>
                 </div>
                 {myLat&&myLng&&<div style={{ borderRadius:10,overflow:"hidden",marginBottom:10,height:120 }}><LiveMap restLat={60.1575} restLng={24.8855} custLat={o.customer_lat} custLng={o.customer_lng} courLat={myLat} courLng={myLng} height={120} zoom={13}/></div>}
-                <button onClick={()=>acceptJob(o.id)} disabled={updating===o.id} style={{ width:"100%",background:T.gr,color:"#fff",border:"none",borderRadius:10,padding:"12px 0",fontSize:13,fontWeight:900,cursor:"pointer",fontFamily:"inherit" }}>{updating===o.id?"Accepting...":"Accept & head to restaurant →"}</button>
+                <button onClick={()=>acceptJob(o.id)} disabled={updating===o.id} style={{ width:"100%",background:T.gr,color:"#fff",border:"none",borderRadius:14,padding:"16px 0",fontSize:16,fontWeight:900,cursor:"pointer",fontFamily:"inherit" }}>{updating===o.id?"Accepting...":"Accept & head to restaurant →"}</button>
               </div>
             ))}
           </>
         )}
         {scr==="active"&&(
           <>
-            {myActive.length===0&&<div style={{ background:T.sf,borderRadius:12,padding:24,textAlign:"center",color:T.mu }}><div style={{ fontSize:36,marginBottom:8 }}>🛵</div><div style={{ fontWeight:700,fontSize:14 }}>No active deliveries</div><button onClick={fetchOrders} style={{ marginTop:14,background:T.hi,border:"none",borderRadius:8,padding:"7px 16px",fontSize:12,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>↻ Refresh</button></div>}
+            {myActive.length===0&&<div style={{ background:T.sf,borderRadius:12,padding:24,textAlign:"center",color:T.mu }}><div style={{ fontSize:36,marginBottom:8 }}>🛵</div><div style={{ fontWeight:700,fontSize:14 }}>No active deliveries</div><button onClick={fetchOrders} style={{ marginTop:14,background:T.hi,border:"none",borderRadius:10,padding:"12px 20px",fontSize:15,fontWeight:700,cursor:"pointer",color:T.mu,fontFamily:"inherit" }}>↻ Refresh</button></div>}
             {myActive.map(o=>(
               <div key={o.id} style={{ background:T.sf,borderRadius:14,padding:"14px 16px",marginBottom:12,border:`1px solid ${T.gr}44` }}>
                 <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10 }}>
@@ -2003,8 +2088,8 @@ function CourierApp({ user, onSignOut, orders, fetchOrders }) {
                   </div>
                 ))}
                 <div style={{ marginTop:10 }}>
-                  {o.status==="ready"&&<button onClick={()=>confirmPickup(o.id)} disabled={updating===o.id} style={{ width:"100%",background:T.yw,color:"#000",border:"none",borderRadius:10,padding:"12px 0",fontSize:13,fontWeight:900,cursor:"pointer",fontFamily:"inherit",marginBottom:8 }}>{updating===o.id?"...":"📦 Confirm pickup"}</button>}
-                  {o.status==="picked_up"&&<button onClick={()=>confirmDelivery(o.id)} disabled={updating===o.id} style={{ width:"100%",background:T.gr,color:"#fff",border:"none",borderRadius:10,padding:"12px 0",fontSize:13,fontWeight:900,cursor:"pointer",fontFamily:"inherit" }}>{updating===o.id?"...":"✓ Confirm delivery"}</button>}
+                  {o.status==="ready"&&<button onClick={()=>confirmPickup(o.id)} disabled={updating===o.id} style={{ width:"100%",background:T.yw,color:"#000",border:"none",borderRadius:14,padding:"16px 0",fontSize:16,fontWeight:900,cursor:"pointer",fontFamily:"inherit",marginBottom:10 }}>{updating===o.id?"...":"📦 Confirm pickup"}</button>}
+                  {o.status==="picked_up"&&<button onClick={()=>confirmDelivery(o.id)} disabled={updating===o.id} style={{ width:"100%",background:T.gr,color:"#fff",border:"none",borderRadius:14,padding:"16px 0",fontSize:16,fontWeight:900,cursor:"pointer",fontFamily:"inherit" }}>{updating===o.id?"...":"✓ Confirm delivery"}</button>}
                   {["heading_to_restaurant","preparing"].includes(o.status)&&<div style={{ textAlign:"center",fontSize:11,color:T.mu,padding:"8px 0" }}>🛵 Head to restaurant — wait for food to be ready</div>}
                 </div>
               </div>
@@ -2216,7 +2301,7 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
                 </div>
                 <div style={{ display:"flex",gap:5,flexWrap:"wrap" }}>
                   {Object.keys(STATUS_META).filter(s=>s!==o.status).map(s=>(
-                    <button key={s} onClick={()=>forceStatus(o.id,s)} style={{ background:T.hi,color:T.mu,border:`1px solid ${T.br}`,borderRadius:6,padding:"4px 8px",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>→{STATUS_META[s].short}</button>
+                    <button key={s} onClick={()=>forceStatus(o.id,s)} style={{ background:T.hi,color:T.mu,border:`1px solid ${T.br}`,borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>→{STATUS_META[s].short}</button>
                   ))}
                 </div>
               </div>
@@ -2280,8 +2365,8 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
                 <div style={{ fontSize:12,color:T.mu,marginBottom:4 }}>{r.cuisine} · {r.address}</div>
                 <div style={{ fontSize:12,color:T.mu,marginBottom:10 }}>{r.email}{r.ytunnus&&` · ${r.ytunnus}`}</div>
                 <div style={{ display:"flex",gap:8 }}>
-                  <button onClick={()=>approve("restaurants",r.id)} style={{ flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:9,padding:"10px 0",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>✓ Approve</button>
-                  <button onClick={()=>reject("restaurants",r.id)} style={{ flex:0.4,background:T.hi,color:T.mu,border:"none",borderRadius:9,padding:"10px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>✗ Reject</button>
+                  <button onClick={()=>approve("restaurants",r.id)} style={{ flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:12,padding:"14px 0",fontSize:16,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>✓ Approve</button>
+                  <button onClick={()=>reject("restaurants",r.id)} style={{ flex:0.4,background:T.hi,color:T.mu,border:"none",borderRadius:12,padding:"14px 0",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>✗ Reject</button>
                 </div>
               </div>
             ))}
@@ -2297,8 +2382,8 @@ function AdminApp({ user, onSignOut, orders, fetchOrders }) {
                   ))}
                 </div>
                 <div style={{ display:"flex",gap:8 }}>
-                  <button onClick={()=>approve("couriers",c.id)} style={{ flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:9,padding:"10px 0",fontSize:13,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>✓ Approve</button>
-                  <button onClick={()=>reject("couriers",c.id)} style={{ flex:0.4,background:T.hi,color:T.mu,border:"none",borderRadius:9,padding:"10px 0",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>✗ Reject</button>
+                  <button onClick={()=>approve("couriers",c.id)} style={{ flex:1,background:"#22C55E",color:"#fff",border:"none",borderRadius:12,padding:"14px 0",fontSize:16,fontWeight:800,cursor:"pointer",fontFamily:"inherit" }}>✓ Approve</button>
+                  <button onClick={()=>reject("couriers",c.id)} style={{ flex:0.4,background:T.hi,color:T.mu,border:"none",borderRadius:12,padding:"14px 0",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit" }}>✗ Reject</button>
                 </div>
               </div>
             ))}
